@@ -29,18 +29,12 @@ StorageType GetStorageType(RValue &object)
   case VALUE_REF:
   {
     if (yytk->CallBuiltin("instance_exists", {object}))
-    {
       return STORAGE_INSTANCE;
-    }
     std::string ref_string = object.ToString();
     if (ref_string.find("ds_map") != -1)
-    {
       return STORAGE_DS_MAP;
-    }
     if (ref_string.find("ds_list") != -1)
-    {
       return STORAGE_DS_LIST;
-    }
     break;
   }
   case VALUE_ARRAY:
