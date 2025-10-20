@@ -379,9 +379,12 @@ void SimulateTree()
 // MARK: Tab Stuff
 void AiTab()
 {
+  if (!ImGui::Begin("AI Info"))
+  {
+    ImGui::End();
+    return;
+  }
   replay_saved_tree = false;
-
-  ImGui::Begin("AI Info");
   if (ImGui::Button("Make AI"))
   {
     MakeAi();
