@@ -9,7 +9,47 @@ using namespace YYTK;
 #include <format>
 #include "ObjectTab.h"
 
-RValue GetIndex(int i, RValue &parent, std::string &name)
+enum StorageType : int32_t
+{
+  STORAGE_UNKNOWN = -1,
+  STORAGE_STRUCT = 0,
+  STORAGE_INSTANCE = 1,
+  STORAGE_ARRAY = 2,
+  STORAGE_DS_MAP = 3,
+  STORAGE_DS_LIST = 4,
+};
+
+StorageType GetStorageType(RValue &object)
+{
+  switch (object.m_Kind)
+  {
+  case VALUE_OBJECT:
+    if (!yytk->CallBuiltin("is_method", {object}).ToBoolean())
+      return STORAGE_STRUCT;
+  case VALUE_REF:
+  {
+    if (yytk->CallBuiltin("instance_exists", {object}))
+    {
+      return STORAGE_INSTANCE;
+    }
+    std::string ref_string = object.ToString();
+    if (ref_string.find("ds_map") != -1)
+    {
+      return STORAGE_DS_MAP;
+    }
+    if (ref_string.find("ds_list") != -1)
+    {
+      return STORAGE_DS_LIST;
+    }
+    break;
+  }
+  case VALUE_ARRAY:
+    return STORAGE_ARRAY;
+  }
+  return STORAGE_UNKNOWN;
+}
+
+RValue GetIndex(int i, RValue &parent, RValue &name, StorageType type)
 {
   if (parent.IsUndefined())
   {
@@ -21,22 +61,17 @@ RValue GetIndex(int i, RValue &parent, std::string &name)
     }
     return yytk->CallBuiltin("instance_find", {RValue(-3), RValue(i)});
   }
-  switch (parent.m_Kind)
+  switch (type)
   {
-  case VALUE_ARRAY:
+  case STORAGE_ARRAY:
     return parent[i];
-  case VALUE_OBJECT:
-  {
-    if (yytk->CallBuiltin("is_method", {parent}).ToBoolean())
-      break;
-    return yytk->CallBuiltin("variable_instance_get", {parent, RValue(name)});
-  }
-  case VALUE_REF:
-  {
-    if (!yytk->CallBuiltin("instance_exists", {parent}))
-      break;
-    return yytk->CallBuiltin("variable_instance_get", {parent, RValue(name)});
-  }
+  case STORAGE_STRUCT:
+  case STORAGE_INSTANCE:
+    return yytk->CallBuiltin("variable_instance_get", {parent, name});
+  case STORAGE_DS_MAP:
+    return yytk->CallBuiltin("ds_map_find_value", {parent, name});
+  case STORAGE_DS_LIST:
+    return yytk->CallBuiltin("ds_list_find_value", {parent, RValue(i)});
   }
   return RValue();
 }
@@ -72,9 +107,9 @@ bool setter_bool = false;
 double setter_double = 0;
 std::string setter_string = "";
 
-RValue ValueSetter(std::string name, RValue value, bool just_changed)
+RValue ValueSetter(RValue name, RValue value, bool just_changed)
 {
-  ImGui::Text(std::format("{} = {}", name, RValueToString(value)).c_str());
+  ImGui::Text(std::format("{} = {}", name.ToString(), RValueToString(value)).c_str());
   switch (value.m_Kind)
   {
   case VALUE_BOOL:
@@ -111,13 +146,6 @@ RValue ValueSetter(std::string name, RValue value, bool just_changed)
   return RValue();
 }
 
-bool ShouldMakePane(RValue &instance)
-{
-  return instance.m_Kind == VALUE_ARRAY ||
-         (instance.m_Kind == VALUE_OBJECT && !yytk->CallBuiltin("is_method", {instance}).ToBoolean()) ||
-         (instance.m_Kind == VALUE_REF && yytk->CallBuiltin("instance_exists", {instance}).ToBoolean());
-}
-
 #define NONE_SELECTED -2
 std::vector<int> pane_selections;
 
@@ -134,7 +162,15 @@ void DrawOptions()
   ImGui::Checkbox("Hide __ vars", &hide_dunder);
 }
 
-void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue &)> name_func, int count, int start_index)
+const char *storage_type_size_functions[] = {
+    "variable_instance_names_count", // STORAGE_STRUCT
+    "variable_instance_names_count", // STORAGE_INSTANCE
+    "array_length",                  // STORAGE_ARRAY
+    "ds_map_size",                   // STORAGE_DS_MAP
+    "ds_list_size",                  // STORAGE_DS_LIST
+};
+
+void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue &)> name_func, int count, int start_index, StorageType type)
 {
   while (pane_selections.size() <= pane_id)
     pane_selections.push_back(NONE_SELECTED);
@@ -147,23 +183,34 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
 
   ImGui::BeginChild(std::format("pane {}", pane_id).c_str(), ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
 
-  bool use_names = false;
+  bool use_names = true;
   RValue names;
-  if (!name_func && object.m_Kind == VALUE_OBJECT || object.m_Kind == VALUE_REF)
+  switch (type)
   {
+  case STORAGE_STRUCT:
+  case STORAGE_INSTANCE:
     names = yytk->CallBuiltin("variable_instance_get_names", {object});
-    use_names = true;
+    break;
+  case STORAGE_DS_MAP:
+    names = yytk->CallBuiltin("ds_map_keys_to_array", {object});
+    break;
+  case STORAGE_ARRAY:
+  case STORAGE_DS_LIST:
+  case STORAGE_UNKNOWN:
+    use_names = false;
+    break;
   }
   bool just_changed = false;
-  std::string selected_name;
+  RValue selected_key;
   RValue selected_value;
   for (int i = start_index; i < count; i++)
   {
     std::string name = use_names ? names[i].ToString() : name_func ? name_func(i, object)
                                                                    : std::to_string(i);
+    RValue key = use_names ? names[i] : RValue(name);
     if (hide_dunder && name.starts_with("__"))
       continue;
-    RValue value = GetIndex(i, object, name);
+    RValue value = GetIndex(i, object, key, type);
     if (hide_functions && value.m_Kind == VALUE_OBJECT && yytk->CallBuiltin("is_method", {value}))
       continue;
     if (ImGui::Selectable(std::format("{}: {}###{}", name, RValueToString(value), i).c_str(), selected == i))
@@ -179,31 +226,48 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     }
     if (selected == i)
     {
-      selected_name = name;
+      selected_key = key;
       selected_value = value;
     }
+  }
+  if (count == 0)
+  {
+    ImGui::Text("empty...");
   }
   ImGui::EndChild();
   if (selected >= start_index)
   {
     ImGui::SameLine();
-    if (ShouldMakePane(selected_value))
+    StorageType new_type = GetStorageType(selected_value);
+    if (new_type != STORAGE_UNKNOWN)
     {
-      int count = yytk->CallBuiltin(selected_value.m_Kind == VALUE_ARRAY ? "array_length" : "variable_instance_names_count", {selected_value}).ToInt32();
-      MakePane(pane_id + 1, selected_value, nullptr, count, 0);
+      int count = yytk->CallBuiltin(storage_type_size_functions[new_type], {selected_value}).ToInt32();
+      MakePane(pane_id + 1, selected_value, nullptr, count, 0, new_type);
     }
     else
     {
-      ImGui::BeginChild("END", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
+      ImGui::BeginChild("END", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
       ImGui::BeginGroup();
       ImGui::BeginChild("EDIT", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
-      RValue new_value = ValueSetter(selected_name, selected_value, just_changed);
+      RValue new_value = ValueSetter(selected_key, selected_value, just_changed);
       if (!new_value.IsUndefined())
       {
-        if (object.IsArray())
+        switch (type)
+        {
+        case STORAGE_STRUCT:
+        case STORAGE_INSTANCE:
+          yytk->CallBuiltin("variable_instance_set", {object, selected_key, new_value});
+          break;
+        case STORAGE_ARRAY:
           object[selected] = new_value;
-        else
-          yytk->CallBuiltin("variable_instance_set", {object, RValue(selected_name), new_value});
+          break;
+        case STORAGE_DS_MAP:
+          yytk->CallBuiltin("ds_map_replace", {object, selected_key, new_value});
+          break;
+        case STORAGE_DS_LIST:
+          yytk->CallBuiltin("ds_list_set", {object, RValue(selected), new_value});
+          break;
+        }
       }
       ImGui::EndChild();
       DrawOptions();
@@ -227,7 +291,7 @@ std::string GetObjectName(int i, RValue &parent)
 
 void ObjectTab()
 {
-  if (!ImGui::Begin("Object Viewer"))
+  if (!ImGui::Begin("Object Viewer", NULL, ImGuiWindowFlags_HorizontalScrollbar))
   {
     ImGui::End();
     return;
@@ -239,12 +303,12 @@ void ObjectTab()
   int instance_count = instance_count_rvalue.ToInt32();
 
   RValue undef;
-  MakePane(0, undef, GetObjectName, instance_count, -1);
+  MakePane(0, undef, GetObjectName, instance_count, -1, STORAGE_UNKNOWN);
 
   if (!options_drawn)
   {
     ImGui::SameLine();
-    ImGui::BeginChild("END", ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
+    ImGui::BeginChild("END", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
     ImGui::BeginGroup();
     ImGui::BeginChild("EDIT", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
     ImGui::Text("No editable variable selected.");
