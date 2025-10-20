@@ -1,0 +1,4 @@
+[submodule "InfoWindow/include/imgui"]
+	path = InfoWindow/include/imgui
+	url = https://github.com/ocornut/imgui
+	branch = docking
