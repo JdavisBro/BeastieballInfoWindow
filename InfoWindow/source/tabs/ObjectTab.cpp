@@ -142,6 +142,7 @@ RValue ValueSetter(RValue name, RValue value, bool just_changed)
 
 #define NONE_SELECTED -2
 std::vector<int> pane_selections;
+std::vector<std::string> pane_searches;
 
 bool options_drawn = false;
 
@@ -168,6 +169,9 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
 {
   while (pane_selections.size() <= pane_id)
     pane_selections.push_back(NONE_SELECTED);
+  while (pane_searches.size() <= pane_id)
+    pane_searches.push_back("");
+
   int selected = pane_selections[pane_id];
   if (selected >= count || (selected < start_index))
   {
@@ -197,10 +201,16 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   bool just_changed = false;
   RValue selected_key;
   RValue selected_value;
+  std::string *search_ptr = pane_searches.data() + pane_id;
+  ImGui::InputText("Search", search_ptr);
+  std::string search = *search_ptr;
+  ImGui::BeginChild("vars");
   for (int i = start_index; i < count; i++)
   {
     std::string name = use_names ? names[i].ToString() : name_func ? name_func(i, object)
                                                                    : std::to_string(i);
+    if (!search.empty() && name.find(search) == -1)
+      continue;
     RValue key = use_names ? names[i] : RValue(name);
     if (hide_dunder && name.starts_with("__"))
       continue;
@@ -213,6 +223,11 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
       {
         pane_selections.resize(pane_id + 1);
         pane_selections.shrink_to_fit();
+      }
+      if (pane_searches.size() > pane_id + 1)
+      {
+        pane_searches.resize(pane_id + 1);
+        pane_searches.shrink_to_fit();
       }
       pane_selections[pane_id] = i;
       selected = i;
@@ -229,7 +244,8 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     ImGui::Text("empty...");
   }
   ImGui::EndChild();
-  if (selected >= start_index)
+  ImGui::EndChild();
+  if (selected >= start_index && !selected_key.IsUndefined())
   {
     ImGui::SameLine();
     StorageType new_type = GetStorageType(selected_value);
