@@ -145,6 +145,7 @@ RValue ValueSetter(RValue name, RValue value, bool just_changed)
 
 #define NONE_SELECTED -2
 std::vector<int> pane_selections;
+std::vector<std::string> pane_names;
 std::vector<std::string> pane_searches;
 
 bool options_drawn = false;
@@ -160,7 +161,7 @@ void DrawOptions()
   ImGui::SameLine();
   ImGui::Checkbox("Hide __ vars", &hide_dunder);
   ImGui::SameLine();
-  ImGui::Checkbox("Sort Names", &sort_names);
+  ImGui::Checkbox("Sort Keys", &sort_names);
 }
 
 const char *storage_type_size_functions[] = {
@@ -177,6 +178,8 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
 {
   while (pane_selections.size() <= pane_id)
     pane_selections.push_back(NONE_SELECTED);
+  while (pane_names.size() <= pane_id)
+    pane_names.push_back("");
   while (pane_searches.size() <= pane_id)
     pane_searches.push_back("");
 
@@ -228,12 +231,18 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     RValue value = GetIndex(i, object, key, type);
     if (hide_functions && value.m_Kind == VALUE_OBJECT && yytk->CallBuiltin("is_method", {value}))
       continue;
-    if (ImGui::Selectable(std::format("{}: {}###{}", name, RValueToString(value), i).c_str(), selected == i))
+    bool is_selected = use_names ? name == pane_names[pane_id] : selected == i;
+    if (ImGui::Selectable(std::format("{}: {}###{}", name, RValueToString(value), i).c_str(), is_selected))
     {
       if (pane_selections.size() > pane_id + 1)
       {
         pane_selections.resize(pane_id + 1);
         pane_selections.shrink_to_fit();
+      }
+      if (pane_names.size() > pane_id + 1)
+      {
+        pane_names.resize(pane_id + 1);
+        pane_names.shrink_to_fit();
       }
       if (pane_searches.size() > pane_id + 1)
       {
@@ -241,11 +250,13 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
         pane_searches.shrink_to_fit();
       }
       pane_selections[pane_id] = i;
+      pane_names[pane_id] = name;
       selected = i;
       just_changed = true;
     }
-    if (selected == i)
+    if ((!just_changed && is_selected) || selected == i)
     {
+      selected = i;
       selected_key = key;
       selected_value = value;
     }
