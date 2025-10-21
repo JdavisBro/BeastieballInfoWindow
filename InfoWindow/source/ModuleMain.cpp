@@ -15,6 +15,32 @@ using namespace YYTK;
 
 extern YYTKInterface *yytk = nullptr;
 
+bool is_beastieball = false;
+
+void BeastieballCheck()
+{
+	is_beastieball = yytk->CallBuiltin("variable_global_exists", {RValue("sprite_beastie_ball_impact")}).ToBoolean();
+	if (is_beastieball)
+	{
+		DbgPrint("Beastieball!");
+	}
+	else
+	{
+		DbgPrint("not beastieball..");
+	}
+}
+
+void DoHooks()
+{
+	// hook requests
+	if (is_beastieball)
+	{
+		AiHooks();
+	}
+	// make hooks
+	CreateHooks();
+}
+
 void FrameCallback(FWFrame &FrameContext)
 {
 	UNREFERENCED_PARAMETER(FrameContext);
@@ -23,27 +49,24 @@ void FrameCallback(FWFrame &FrameContext)
 	if (!window_exists)
 	{
 		ImguiCreateWindow();
+		BeastieballCheck();
+		DoHooks();
 		window_exists = true;
 	}
 
 	if (!ImguiFrameSetup())
 	{
 		ObjectTab();
-		AiTab();
+		if (is_beastieball)
+		{
+			AiTab();
+		}
 
 		ImguiFrameEnd();
 	}
 
 	// remove unfocus low fps.
 	yytk->CallBuiltin("game_set_speed", {RValue(30), RValue(0)});
-}
-
-void DoHooks()
-{
-	// hook requests
-	AiHooks();
-	// make hooks
-	CreateHooks();
 }
 
 EXPORTED AurieStatus ModuleInitialize(
@@ -69,8 +92,6 @@ EXPORTED AurieStatus ModuleInitialize(
 	{
 		DbgPrintEx(LOG_SEVERITY_ERROR, "[InfoWindow] - Failed to register frame callback!");
 	}
-
-	DoHooks();
 
 	DbgPrintEx(LOG_SEVERITY_DEBUG, "[InfoWindow] - Hello from PluginEntry!");
 
