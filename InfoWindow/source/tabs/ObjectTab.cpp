@@ -151,6 +151,7 @@ bool options_drawn = false;
 
 bool hide_functions = true;
 bool hide_dunder = true;
+bool sort_names = false;
 
 void DrawOptions()
 {
@@ -158,6 +159,8 @@ void DrawOptions()
   ImGui::Checkbox("Hide Functions", &hide_functions);
   ImGui::SameLine();
   ImGui::Checkbox("Hide __ vars", &hide_dunder);
+  ImGui::SameLine();
+  ImGui::Checkbox("Sort Names", &sort_names);
 }
 
 const char *storage_type_size_functions[] = {
@@ -202,6 +205,10 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   case STORAGE_UNKNOWN:
     use_names = false;
     break;
+  }
+  if (use_names && sort_names)
+  {
+    yytk->CallBuiltin("array_sort", {names, RValue(true)});
   }
   RValue selected_key;
   RValue selected_value;
