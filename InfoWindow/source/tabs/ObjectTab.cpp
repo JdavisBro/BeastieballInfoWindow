@@ -134,7 +134,7 @@ RValue ValueSetter(RValue name, RValue value, bool just_changed)
     if (just_changed)
       setter_string = value.ToString();
     ImGui::Text("type: string");
-    ImGui::InputText("##TextInput", &setter_string);
+    ImGui::InputTextMultiline("##TextInput", &setter_string);
     ImGui::SameLine();
     if (ImGui::Button("Set"))
       return RValue(setter_string);
