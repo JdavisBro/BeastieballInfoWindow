@@ -187,7 +187,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     selected = NONE_SELECTED;
   }
 
-  ImGui::BeginChild(std::format("pane {}", pane_id).c_str(), ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
+  ImGui::BeginChild(std::format("pane {}", pane_id).c_str(), ImVec2(150, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX | ImGuiWindowFlags_NoSavedSettings);
 
   bool use_names = true;
   RValue names;
@@ -267,7 +267,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     }
     else
     {
-      ImGui::BeginChild("END", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
+      ImGui::BeginChild("END", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX | ImGuiWindowFlags_NoSavedSettings);
       ImGui::BeginGroup();
       ImGui::BeginChild("EDIT", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
       RValue new_value = ValueSetter(selected_key, selected_value, just_changed);
