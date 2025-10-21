@@ -77,15 +77,18 @@ std::string RValueToString(RValue &value)
   case VALUE_ARRAY:
     return std::format("Array[{}]", yytk->CallBuiltin("array_length", {value}).ToString());
   case VALUE_OBJECT:
+  {
     if (yytk->CallBuiltin("is_method", {value}).ToBoolean())
       break;
-    return "Struct";
+    std::string constructor = yytk->CallBuiltin("instanceof", {value}).ToString();
+    return std::format("Struct ({})", constructor);
+  }
   case VALUE_REF:
   {
     if (!yytk->CallBuiltin("instance_exists", {value}))
       break;
     RValue object = yytk->CallBuiltin("variable_instance_get", {value, RValue("object_index")});
-    return std::format("{} Instance", yytk->CallBuiltin("object_get_name", {object}).ToString());
+    return std::format("Instance ({})", yytk->CallBuiltin("object_get_name", {object}).ToString());
   }
   case VALUE_STRING:
     return std::format("\"{}\"", value.ToString());
@@ -165,6 +168,8 @@ const char *storage_type_size_functions[] = {
     "ds_list_size",                  // STORAGE_DS_LIST
 };
 
+bool just_changed = false;
+
 void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue &)> name_func, int count, int start_index, StorageType type)
 {
   while (pane_selections.size() <= pane_id)
@@ -198,7 +203,6 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     use_names = false;
     break;
   }
-  bool just_changed = false;
   RValue selected_key;
   RValue selected_value;
   std::string *search_ptr = pane_searches.data() + pane_id;
@@ -283,6 +287,8 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
       DrawOptions();
       ImGui::EndGroup();
       ImGui::EndChild();
+      if (just_changed)
+        ImGui::SetScrollHereX(1.0);
     }
   }
 }
@@ -307,6 +313,7 @@ void ObjectTab()
     return;
   }
   options_drawn = false;
+  just_changed = false;
 
   RValue instance_count_rvalue;
   yytk->GetBuiltin("instance_count", nullptr, NULL_INDEX, instance_count_rvalue);
@@ -326,6 +333,8 @@ void ObjectTab()
     DrawOptions();
     ImGui::EndGroup();
     ImGui::EndChild();
+    if (just_changed)
+      ImGui::SetScrollHereX(1.0);
   }
 
   ImGui::End();
