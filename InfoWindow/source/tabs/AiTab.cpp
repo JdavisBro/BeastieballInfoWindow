@@ -200,18 +200,23 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
     {
       RValue checking = tree;
       bool path_correct = true;
-      int32_t path_index = rigged_for_path.size() - 1;
+      size_t path_index = rigged_for_path.size();
       while (!checking["parent"].IsUndefined())
       {
-        if (path_index < 0 || checking["selection"].ToInt32() != rigged_for_path[path_index])
+        if (path_index == 0)
+        {
+          path_correct = false;
+          break;
+        }
+        path_index -= 1;
+        if (checking["selection"].ToInt32() != rigged_for_path[path_index])
         {
           path_correct = false;
           break;
         }
         checking = checking["parent"];
-        path_index -= 1;
       }
-      if (path_index >= 0)
+      if (path_index > 0)
       {
         path_correct = false;
       }
@@ -252,7 +257,7 @@ void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> path)
     return;
   }
 
-  int child_count = branch.children.size();
+  size_t child_count = branch.children.size();
   ImGuiTreeNodeFlags flags = child_count ? ImGuiTreeNodeFlags_DefaultOpen : (ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet);
   if ((branch.eval + branch.erratic) == winning_eval)
   {
