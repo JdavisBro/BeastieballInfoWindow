@@ -154,14 +154,28 @@ bool hide_functions = true;
 bool hide_dunder = true;
 bool sort_names = false;
 
-void DrawOptions()
+bool just_changed = false;
+
+void BeginEndPane()
+{
+  ImGui::BeginChild("END", ImVec2(350, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
+  ImGui::BeginGroup();
+  ImGui::BeginChild("EDIT", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
+}
+
+void EndEndPane()
 {
   options_drawn = true;
+  ImGui::EndChild();
   ImGui::Checkbox("Hide Functions", &hide_functions);
   ImGui::SameLine();
   ImGui::Checkbox("Hide __ vars", &hide_dunder);
   ImGui::SameLine();
   ImGui::Checkbox("Sort Keys", &sort_names);
+  ImGui::EndGroup();
+  ImGui::EndChild();
+  if (just_changed)
+    ImGui::SetScrollHereX(1.0);
 }
 
 const char *storage_type_size_functions[] = {
@@ -171,8 +185,6 @@ const char *storage_type_size_functions[] = {
     "ds_map_size",                   // STORAGE_DS_MAP
     "ds_list_size",                  // STORAGE_DS_LIST
 };
-
-bool just_changed = false;
 
 void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue &)> name_func, int count, int start_index, StorageType type)
 {
@@ -278,9 +290,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     }
     else
     {
-      ImGui::BeginChild("END", ImVec2(350, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
-      ImGui::BeginGroup();
-      ImGui::BeginChild("EDIT", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
+      BeginEndPane();
       RValue new_value = ValueSetter(selected_key, selected_value, just_changed);
       if (!new_value.IsUndefined())
       {
@@ -301,12 +311,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
           break;
         }
       }
-      ImGui::EndChild();
-      DrawOptions();
-      ImGui::EndGroup();
-      ImGui::EndChild();
-      if (just_changed)
-        ImGui::SetScrollHereX(1.0);
+      EndEndPane();
     }
   }
 }
@@ -343,16 +348,9 @@ void ObjectTab()
   if (!options_drawn)
   {
     ImGui::SameLine();
-    ImGui::BeginChild("END", ImVec2(350, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX);
-    ImGui::BeginGroup();
-    ImGui::BeginChild("EDIT", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
+    BeginEndPane();
     ImGui::Text("No editable variable selected.");
-    ImGui::EndChild();
-    DrawOptions();
-    ImGui::EndGroup();
-    ImGui::EndChild();
-    if (just_changed)
-      ImGui::SetScrollHereX(1.0);
+    EndEndPane();
   }
 
   ImGui::End();
