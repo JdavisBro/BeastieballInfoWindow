@@ -356,3 +356,6 @@ YYExplorer/
 ### MOUSIE'S MAKEFILE BUILD SYSTEM ###
 _build/
 make_stuff/config.mk
+
+
+.vscode
