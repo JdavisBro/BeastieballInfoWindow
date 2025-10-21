@@ -41,6 +41,11 @@ void DoHooks()
 	CreateHooks();
 }
 
+inline void SetNextDock(ImGuiID dockspace)
+{
+	ImGui::SetNextWindowDockID(dockspace, ImGuiCond_FirstUseEver);
+}
+
 void FrameCallback(FWFrame &FrameContext)
 {
 	UNREFERENCED_PARAMETER(FrameContext);
@@ -54,11 +59,14 @@ void FrameCallback(FWFrame &FrameContext)
 		window_exists = true;
 	}
 
-	if (!ImguiFrameSetup())
+	ImGuiID dockspace;
+	if (!ImguiFrameSetup(dockspace))
 	{
+		SetNextDock(dockspace);
 		ObjectTab();
 		if (is_beastieball)
 		{
+			SetNextDock(dockspace);
 			AiTab();
 		}
 

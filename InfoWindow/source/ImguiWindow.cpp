@@ -97,7 +97,7 @@ int ImguiCreateWindow()
 
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
-int ImguiFrameSetup()
+int ImguiFrameSetup(ImGuiID &dockspace)
 {
   // Poll and handle messages (inputs, window resize, etc.)
   // See the WndProc() function below for our to dispatch events to the Win32 backend.
@@ -120,7 +120,7 @@ int ImguiFrameSetup()
   ImGui_ImplOpenGL3_NewFrame();
   ImGui_ImplWin32_NewFrame();
   ImGui::NewFrame();
-  ImGui::DockSpaceOverViewport();
+  dockspace = ImGui::DockSpaceOverViewport();
 
   // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
   ImGui::ShowDemoWindow();

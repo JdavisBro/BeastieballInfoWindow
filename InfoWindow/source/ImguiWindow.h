@@ -1,4 +1,4 @@
 int ImguiCreateWindow();
-int ImguiFrameSetup();
+int ImguiFrameSetup(ImGuiID &dockspace);
 int ImguiFrameEnd();
 int ImguiShutdown();
