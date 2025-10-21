@@ -66,7 +66,8 @@ void FrameCallback(FWFrame &FrameContext)
 	}
 
 	// remove unfocus low fps.
-	yytk->CallBuiltin("game_set_speed", {RValue(30), RValue(0)});
+	if (is_beastieball)
+		yytk->CallBuiltin("game_set_speed", {RValue(30), RValue(0)});
 }
 
 EXPORTED AurieStatus ModuleInitialize(
