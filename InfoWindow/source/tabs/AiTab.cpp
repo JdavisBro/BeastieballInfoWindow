@@ -302,8 +302,6 @@ void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> path)
 
 void DrawAiTree()
 {
-  ImGui::Text("Ai Tree:");
-  ImGui::SameLine();
   ImGui::Checkbox("Show All", &draw_all);
   ImGui::SameLine();
   ImGui::Checkbox("Show Not Possible", &draw_notpossible);
@@ -316,11 +314,13 @@ void DrawAiTree()
     return;
   }
   winning_eval = aitree.eval + aitree.erratic;
+  ImGui::BeginChild("aitree", ImVec2(0, 0), ImGuiChildFlags_Borders);
   for (int i = 0; i < root_children; i++)
   {
     std::vector<int32_t> path = {i};
     DrawBranch(aitree.children[i], i, path);
   }
+  ImGui::EndChild();
 }
 
 // MARK: Sim
