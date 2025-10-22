@@ -174,7 +174,7 @@
     <ClCompile Include="include\YYToolkit\YYTK_Shared_Types.cpp" />
     <ClCompile Include="source\ImguiWindow.cpp" />
     <ClCompile Include="source\tabs\ObjectTab.cpp" />
-    <ClCompile Include="source\tabs\AiTab.cpp" />
+    <ClCompile Include="source\tabs\beastieball\AiTab.cpp" />
     <ClCompile Include="source\Hooks.cpp" />
     <ClCompile Include="source\ModuleMain.cpp" />
   </ItemGroup>
@@ -195,7 +195,7 @@
     <ClInclude Include="include\imgui\imgui.h" />
     <ClInclude Include="source\ImguiWindow.h" />
     <ClInclude Include="source\tabs\ObjectTab.h" />
-    <ClInclude Include="source\tabs\AiTab.h" />
+    <ClInclude Include="source\tabs\beastieball\AiTab.h" />
     <ClInclude Include="source\Hooks.h" />
     <ClInclude Include="source\ModuleMain.h" />
   </ItemGroup>

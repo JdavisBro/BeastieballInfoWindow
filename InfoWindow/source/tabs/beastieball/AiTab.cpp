@@ -4,7 +4,8 @@ using namespace YYTK;
 
 #include "imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
-#include "../Hooks.h"
+#include "../../ModuleMain.h"
+#include "../../Hooks.h"
 
 #include "AiTab.h"
 

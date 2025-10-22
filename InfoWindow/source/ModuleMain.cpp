@@ -11,7 +11,7 @@ using namespace YYTK;
 #include "Hooks.h"
 #include "ImguiWindow.h"
 #include "tabs/ObjectTab.h"
-#include "tabs/AiTab.h"
+#include "tabs/beastieball/AiTab.h"
 
 extern YYTKInterface *yytk = nullptr;
 
