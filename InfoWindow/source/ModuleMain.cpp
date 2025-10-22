@@ -12,6 +12,7 @@ using namespace YYTK;
 #include "ImguiWindow.h"
 #include "tabs/ObjectTab.h"
 #include "tabs/beastieball/AiTab.h"
+#include "tabs/beastieball/PartyTab.h";
 
 extern YYTKInterface *yytk = nullptr;
 
@@ -68,6 +69,8 @@ void FrameCallback(FWFrame &FrameContext)
 		{
 			SetNextDock(dockspace);
 			AiTab();
+			SetNextDock(dockspace);
+			PartyTab();
 		}
 
 		ImguiFrameEnd();
