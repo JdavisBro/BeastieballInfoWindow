@@ -115,10 +115,10 @@ void CreateAiTree()
   RValue ai_choicegraph = InstanceGet(game_active, "ai_choicegraph");
   if (!ai_choicegraph.ToBoolean())
     return;
-  if (!ai_choicegraph["children"].IsArray() || !yytk->CallBuiltin("array_length", {ai_choicegraph["children"]}).ToInt32())
-    return;
   while (!ai_choicegraph["parent"].IsUndefined())
     ai_choicegraph = ai_choicegraph["parent"];
+  if (!ai_choicegraph["children"].IsArray() || !yytk->CallBuiltin("array_length", {ai_choicegraph["children"]}).ToInt32())
+    return;
   sim_total = 0;
   max_eval = 0;
   aitree = AddBranch(ai_choicegraph);
