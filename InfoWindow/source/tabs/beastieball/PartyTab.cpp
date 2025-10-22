@@ -8,8 +8,22 @@ using namespace YYTK;
 
 #include "PartyTab.h"
 
+struct RelationshipData
+{
+  std::string otherPid;
+  std::string otherName;
+  double pow;
+  double prevPow;
+  double friendly;
+  double prevFriendly;
+  bool hot;
+  int myAttacks;
+  int otherAttacks;
+};
+
 struct BeastieData
 {
+  std::string pid;
   std::string name;
   std::string number;
   double level;
@@ -17,7 +31,67 @@ struct BeastieData
   std::vector<int> attklist;
   std::vector<int> training;
   std::vector<double> coaching;
+  std::map<std::string, RelationshipData> relationships;
+  std::vector<RelationshipData *> relationships_sorted;
 };
+
+BeastieData selected_copy;
+
+bool RelationshipSort(RelationshipData *a, RelationshipData *b)
+{
+  return a->pow != b->pow ? a->pow > b->pow : a->otherPid.compare(b->otherPid) > 0;
+}
+
+void GetRelationships(std::map<std::string, RelationshipData> &relationships, std::vector<RelationshipData *> &relationships_sorted, std::string pid)
+{
+  bool same_beastie = pid == selected_copy.pid;
+  RValue all_relationships = yytk->CallBuiltin("variable_global_get", {"relationships"});
+  std::vector<RValue> all_keys = yytk->CallBuiltin("variable_instance_get_names", {all_relationships}).ToVector();
+  for (RValue key : all_keys)
+  {
+    RValue relationship = all_relationships[key.ToString()];
+    std::string pidA = relationship["pidA"].ToString();
+    std::string pidB = relationship["pidB"].ToString();
+    int pidMatch = pidA == pid ? 1 : pidB == pid ? 2
+                                                 : 0;
+    if (pidMatch)
+    {
+      bool is_a = pidMatch == 1;
+      std::string &otherPid = is_a ? pidB : pidA;
+      RValue other = yytk->CallGameScript("gml_Script_char_find_by_pid", {RValue(otherPid)});
+
+      RelationshipData copy;
+      copy.otherPid = otherPid;
+      copy.otherName = std::format("{}#{}", other["name"].ToString(), other["number"].ToString());
+      copy.pow = relationship["pow"].ToDouble();
+      copy.friendly = relationship["friendly"].ToDouble();
+      copy.prevPow = copy.pow;
+      copy.prevFriendly = copy.friendly;
+      copy.hot = relationship["hot"].ToBoolean();
+      copy.myAttacks = (is_a ? relationship["attacksA"] : relationship["attacksB"]).ToInt32();
+      copy.otherAttacks = (is_a ? relationship["attacksB"] : relationship["attacksA"]).ToInt32();
+
+      if (same_beastie && selected_copy.relationships.contains(otherPid))
+      {
+        RelationshipData old_relationship = selected_copy.relationships.at(otherPid);
+        if (copy.pow != old_relationship.pow)
+          copy.prevPow = old_relationship.pow;
+        else
+          copy.prevPow = old_relationship.prevPow;
+        if (copy.friendly != old_relationship.friendly)
+          copy.prevFriendly = old_relationship.friendly;
+        else
+          copy.prevFriendly = old_relationship.prevFriendly;
+      }
+      relationships[otherPid] = copy;
+    }
+  }
+  for (auto r = relationships.begin(); r != relationships.end(); r++)
+  {
+    relationships_sorted.push_back(&r->second);
+  }
+  std::sort(relationships_sorted.begin(), relationships_sorted.end(), RelationshipSort);
+}
 
 const char *training_types[] = {
     "ba_t",
@@ -44,6 +118,7 @@ BeastieData CopyBeastieData(RValue &beastie)
   double growth = species["growth"].ToDouble();
 
   BeastieData copy;
+  copy.pid = beastie["pid"].ToString();
   copy.name = beastie["name"].ToString();
   copy.number = beastie["number"].ToString();
   copy.level = cbrt(beastie["xp"].ToDouble() / growth);
@@ -70,10 +145,34 @@ BeastieData CopyBeastieData(RValue &beastie)
   {
     copy.coaching.push_back(beastie[key].ToDouble());
   }
+  GetRelationships(copy.relationships, copy.relationships_sorted, copy.pid);
   return copy;
 }
 
-BeastieData selected_copy;
+void DrawRelationships()
+{
+  double window_width = ImGui::GetWindowWidth() - 16.0;
+  double current_line = 0;
+  size_t count = selected_copy.relationships_sorted.size();
+  for (int i = 0; i < count; i++)
+  {
+    current_line += 308;
+    if (current_line > window_width)
+      current_line = 308;
+    else if (i != 0)
+      ImGui::SameLine();
+    RelationshipData relationship = *selected_copy.relationships_sorted[i];
+    ImGui::BeginChild(relationship.otherPid.c_str(), ImVec2(300, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+    ImGui::Text("%s", relationship.otherName.c_str());
+    double powChanged = relationship.pow - relationship.prevPow;
+    ImGui::Text("Pow: %.2f • ± %.2f", relationship.pow, powChanged);
+    double friendlyChanged = relationship.friendly - relationship.prevFriendly;
+    ImGui::Text("Friendly: %.2f • ± %.2f", relationship.friendly, friendlyChanged);
+    ImGui::Text(relationship.hot ? "Spicy" : "Not Spicy");
+    ImGui::Text("Attacks: %i • %i", relationship.myAttacks, relationship.otherAttacks);
+    ImGui::EndChild();
+  }
+}
 
 const char *types[] = {
     "Body",
@@ -197,7 +296,7 @@ void SelectedBeastie(RValue beastie)
   {
     ImGui::Text("Play %i: ", i + 1);
     ImGui::SameLine();
-    ImGui::Combo(std::format("##Play{}", i).c_str(), selected_copy.attklist.data() + i, items, species_attklist_rvalue.size());
+    ImGui::Combo(std::format("##Play{}", i).c_str(), selected_copy.attklist.data() + i, items, (int)species_attklist_rvalue.size());
     ImGui::SameLine();
   }
   if (ImGui::Button("Set##PlaySet"))
@@ -241,6 +340,7 @@ void SelectedBeastie(RValue beastie)
   if (ImGui::BeginTabItem("Coaching"))
     DoStatSection(false, beastie, sport, sport_beastie, window_flags);
   ImGui::EndTabBar();
+  DrawRelationships();
   ImGui::EndChild();
 }
 
