@@ -24,7 +24,7 @@
     <ProjectGuid>{D4BA7900-4F70-42BA-977B-E3652550F1A6}</ProjectGuid>
     <RootNamespace>InfoWindow</RootNamespace>
     <WindowsTargetPlatformVersion>10.0</WindowsTargetPlatformVersion>
-    <ProjectName>InfoWindow</ProjectName>
+    <ProjectName>BeastieballInfoWindow</ProjectName>
   </PropertyGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'" Label="Configuration">
