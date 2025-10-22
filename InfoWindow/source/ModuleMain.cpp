@@ -12,7 +12,7 @@ using namespace YYTK;
 #include "ImguiWindow.h"
 #include "tabs/ObjectTab.h"
 #include "tabs/beastieball/AiTab.h"
-#include "tabs/beastieball/PartyTab.h";
+#include "tabs/beastieball/PartyTab.h"
 
 extern YYTKInterface *yytk = nullptr;
 
