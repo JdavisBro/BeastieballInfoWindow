@@ -94,9 +94,7 @@ AiBranch AddBranch(RValue branch)
   branch_rep.eval = branch["eval"].ToDouble() - branch_rep.erratic;
   branch_rep.sim_count = 0;
   if (branch_rep.eval > max_eval)
-  {
     max_eval = branch_rep.eval;
-  }
   RValue children = branch["children"];
   if (children.IsArray())
   {
@@ -174,13 +172,9 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
     double best_eval = tree["eval"].ToDouble();
     RValue favorite_child = tree["children"][(new_eval >= best_eval ? (*Args[1]) : tree["_favorite"]).ToInt32()];
     if (yytk->CallBuiltin("variable_instance_exists", {favorite_child, "erratic_result"}).ToBoolean())
-    {
       InstanceSet(tree, "erratic_result", favorite_child["erratic_result"]);
-    }
     else
-    {
       DbgPrint("favorite child does not have erratic");
-    }
   }
   else if (numArgs == 0 || (*Args[0]).IsUndefined()) // is from board eval
   {
@@ -245,20 +239,14 @@ bool shouldBranchShow(std::string text)
 void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> path)
 {
   if (!draw_all && branch.text == "" && branch.eval == -1)
-  {
     return;
-  }
   if (!draw_all && !draw_notpossible && branch.eval <= (max_eval - (erraticness * 120)))
-  {
     return;
-  }
 
   size_t child_count = branch.children.size();
   ImGuiTreeNodeFlags flags = child_count ? ImGuiTreeNodeFlags_DefaultOpen : (ImGuiTreeNodeFlags_Leaf | ImGuiTreeNodeFlags_Bullet);
   if ((branch.eval + branch.erratic) == winning_eval)
-  {
     flags |= ImGuiTreeNodeFlags_Selected;
-  }
   bool node_open = true;
   bool show_node = draw_intermediary || shouldBranchShow(branch.text);
   if (show_node)
@@ -272,7 +260,10 @@ void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> path)
     }
     else
     {
-      text = std::format("{}: {:.3f} +{:.3f} = {:.3f} ({:.3f}%)", branch.text, branch.eval, branch.erratic, branch.eval + branch.erratic, chance);
+      if (chance != -1)
+        text = std::format("{}: {:.3f} +{:.3f} = {:.3f} ({:.3f}%)", branch.text, branch.eval, branch.erratic, branch.eval + branch.erratic, chance);
+      else
+        text = std::format("{}: {:.3f} +{:.3f} = {:.3f}", branch.text, branch.eval, branch.erratic, branch.eval + branch.erratic);
     }
     node_open = ImGui::TreeNodeEx(text.c_str(), flags);
   }
@@ -285,9 +276,7 @@ void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> path)
       path.pop_back();
     }
     if (show_node)
-    {
       ImGui::TreePop();
-    }
   }
   if (!child_count && show_node && ImGui::IsItemClicked())
   {
@@ -349,12 +338,8 @@ void SimCollectEnds(std::vector<AiBranch *> &ends, AiBranch *branch)
 
 void SimulateTree()
 {
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
-  RValue ai_choicegraph = InstanceGet(game_active, "ai_choicegraph");
-  if (!game_active.ToBoolean() || aitree.children.empty())
-  {
+  if (aitree.children.empty())
     return;
-  }
   std::vector<AiBranch *> ends;
   SimCollectEnds(ends, &aitree);
   size_t end_count = ends.size();
@@ -364,8 +349,7 @@ void SimulateTree()
     size_t favorite = 0;
     for (int end_i = 0; end_i < end_count; end_i++)
     {
-      AiBranch branch = *ends[end_i];
-      double eval = branch.eval + yytk->CallBuiltin("random", {RValue(120)}).ToDouble() * erraticness;
+      double eval = ends[end_i]->eval + yytk->CallBuiltin("random", {RValue(120)}).ToDouble() * erraticness;
       if (eval > sim_max_eval)
       {
         sim_max_eval = eval;
@@ -380,21 +364,17 @@ void SimulateTree()
 // MARK: Tab Stuff
 void AiTab()
 {
+  replay_saved_tree = false;
   if (!ImGui::Begin("AI Info"))
   {
     ImGui::End();
     return;
   }
-  replay_saved_tree = false;
   if (ImGui::Button("Make AI"))
-  {
     MakeAi();
-  }
   ImGui::SameLine();
   if (ImGui::Button("Simulate Chances"))
-  {
     SimulateTree();
-  }
   CreateAiTree();
   DrawAiTree();
 
