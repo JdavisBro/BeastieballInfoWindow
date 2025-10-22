@@ -85,7 +85,7 @@ void DoStatSection(bool training, RValue &beastie, bool &sport, RValue &sport_be
 {
   ImGui::BeginChild("statpow", ImVec2(0, 0), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY, window_flags);
   ImGui::Text("POW");
-  ImGui::PushItemWidth(300);
+  ImGui::PushItemWidth(150);
   for (int i = 0; i < 3; i++)
   {
     if (training)
@@ -95,9 +95,9 @@ void DoStatSection(bool training, RValue &beastie, bool &sport, RValue &sport_be
   }
   ImGui::EndChild();
   ImGui::SameLine();
-  ImGui::BeginChild("statdef", ImVec2(300, 120), 0, window_flags);
+  ImGui::BeginChild("statdef", ImVec2(300, 120), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY, window_flags);
   ImGui::Text("DEF");
-  ImGui::PushItemWidth(300);
+  ImGui::PushItemWidth(150);
   for (int i = 3; i < 6; i++)
   {
     if (training)
@@ -106,8 +106,8 @@ void DoStatSection(bool training, RValue &beastie, bool &sport, RValue &sport_be
       ImGui::InputDouble(std::format("##{}", i).c_str(), selected_copy.coaching.data() + i);
   }
   ImGui::EndChild();
-  ImGui::BeginChild("setbutton", ImVec2(650, NULL), 0, window_flags);
-  if (ImGui::Button("Set##StatSet", ImVec2(650, 0)))
+  ImGui::BeginChild("setbutton", ImVec2(350, 0), ImGuiChildFlags_AutoResizeY, window_flags);
+  if (ImGui::Button("Set##StatSet", ImVec2(350, 0)))
   {
     for (int i = 0; i < 6; i++)
     {
@@ -134,9 +134,9 @@ void SelectedBeastie(RValue beastie)
   if (!editing)
     selected_copy = CopyBeastieData(beastie);
 
-  ImGui::BeginChild("beastie", ImVec2(0, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+  ImGui::BeginChild("beastie", ImVec2(0, 0), ImGuiChildFlags_Borders, ImGuiWindowFlags_HorizontalScrollbar);
   ImGuiWindowFlags window_flags = editing ? 0 : ImGuiWindowFlags_NoInputs;
-  ImGui::BeginChild("noclicksection", ImVec2(0, 0), ImGuiChildFlags_AutoResizeY, window_flags);
+  ImGui::BeginChild("noclicksection", ImVec2(0, 0), ImGuiChildFlags_AutoResizeX | ImGuiChildFlags_AutoResizeY, window_flags);
 
   RValue sport_beastie = yytk->CallGameScript("gml_Script_char_find_battler_by_pid", {beastie["pid"]});
   bool sport = sport_beastie.m_Kind == VALUE_OBJECT;
@@ -144,7 +144,7 @@ void SelectedBeastie(RValue beastie)
   RValue char_dic = yytk->CallBuiltin("variable_global_get", {"char_dic"});
   RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie["specie"]});
 
-  ImGui::PushItemWidth(300);
+  ImGui::PushItemWidth(150);
   ImGui::Text("Name: ");
   ImGui::SameLine();
   ImGui::InputText("##Name", &selected_copy.name);
@@ -181,7 +181,7 @@ void SelectedBeastie(RValue beastie)
     }
   }
   ImGui::PopItemWidth();
-  ImGui::PushItemWidth(200);
+  ImGui::PushItemWidth(120);
 
   RValue move_dic = yytk->CallBuiltin("variable_global_get", {"move_dic"});
   std::string species_attklist;
