@@ -19,6 +19,7 @@ struct RelationshipData
   bool hot;
   int myAttacks;
   int otherAttacks;
+  bool immature;
 };
 
 struct BeastieData
@@ -70,6 +71,7 @@ void GetRelationships(std::map<std::string, RelationshipData> &relationships, st
       copy.hot = relationship["hot"].ToBoolean();
       copy.myAttacks = (is_a ? relationship["attacksA"] : relationship["attacksB"]).ToInt32();
       copy.otherAttacks = (is_a ? relationship["attacksB"] : relationship["attacksA"]).ToInt32();
+      copy.immature = relationship["immature"].ToBoolean();
 
       if (same_beastie && selected_copy.relationships.contains(otherPid))
       {
@@ -149,6 +151,35 @@ BeastieData CopyBeastieData(RValue &beastie)
   return copy;
 }
 
+const char *GetRelationshipType(RelationshipData &relationship)
+{
+  if (relationship.friendly == 0)
+  {
+    return "None";
+  }
+  if (relationship.friendly > 0)
+  {
+    if (relationship.hot)
+    {
+      if (relationship.immature)
+        return "Besties (Support)";
+      else
+        return "Sweethearts";
+    }
+    else
+    {
+      return "Besties (Defense)";
+    }
+  }
+  else
+  {
+    if (relationship.hot)
+      return "Rivals";
+    else
+      return "Partners";
+  }
+}
+
 void DrawRelationships()
 {
   double window_width = ImGui::GetWindowWidth() - 16.0;
@@ -169,7 +200,8 @@ void DrawRelationships()
     double friendlyChanged = relationship.friendly - relationship.prevFriendly;
     ImGui::Text("Friendly: %.2f • ± %.2f", relationship.friendly, friendlyChanged);
     ImGui::Text(relationship.hot ? "Spicy" : "Not Spicy");
-    ImGui::Text("Attacks: %i • %i", relationship.myAttacks, relationship.otherAttacks);
+    ImGui::Text("Type: %s • %s", GetRelationshipType(relationship), relationship.pow >= 350 ? "Formed" : "Not Formed");
+    ImGui::Text("Attacks: %i : %i", relationship.myAttacks, relationship.otherAttacks);
     ImGui::EndChild();
   }
 }
