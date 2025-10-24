@@ -101,6 +101,45 @@ void CheatsTab()
   if (ImGui::Button("Teleport to Map Center"))
     TeleportToMapWorldPosition(game, "world_x", "world_y");
   ImGui::Checkbox("Teleport to mouse on Middle Click", &teleport_on_middle_click);
+  ImGui::Text("Save Files:");
+  ImGui::BeginChild("saves", ImVec2(0, 0), ImGuiChildFlags_Borders);
+  int slot = yytk->CallBuiltin("variable_global_exists", {"SAVE_SLOT"}) ? yytk->CallBuiltin("variable_global_get", {"SAVE_SLOT"}).ToInt32() : 0;
+  int prev_slot = slot;
+  ImGui::SetNextItemWidth(150);
+  ImGui::InputInt("Save Slot", &slot, 1, 1);
+  ImGui::SameLine();
+  if (ImGui::Button("Save"))
+    yytk->CallGameScript("gml_Script_savedata_save", {});
+  ImGui::SameLine();
+  if (ImGui::Button("Load"))
+  {
+    yytk->CallGameScript("gml_Script_savedata_load", {});
+    yytk->CallGameScript("gml_Script_data_load_level", {});
+  }
+  RValue stumps = yytk->CallBuiltin("variable_global_get", {"savedata_stumps"});
+  int stump_count = yytk->CallBuiltin("array_length", {stumps}).ToInt32();
+  for (int i = 0; i <= stump_count; i++)
+  {
+    std::string text;
+    if (i < stump_count && !stumps[i].IsUndefined())
+    {
+      RValue stump = stumps[i];
+      if (stump.IsUndefined())
+        continue;
+      std::string note;
+      text = std::format("{} • {}", i, stump["name"].ToString());
+    }
+    else
+    {
+      text = std::format("{} • EMPTY", i);
+    }
+    if (ImGui::Selectable(text.c_str(), i == slot))
+      slot = i;
+  }
+  if (prev_slot != slot)
+    yytk->CallBuiltin("variable_global_set", {"SAVE_SLOT", slot});
+
+  ImGui::EndChild();
 
   ImGui::End();
 }
