@@ -47,10 +47,14 @@ void GetRelationships(std::map<std::string, RelationshipData> &relationships, st
 {
   bool same_beastie = pid == selected_copy.pid;
   RValue all_relationships = yytk->CallBuiltin("variable_global_get", {"relationships"});
+  RValue game_active = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
+  bool use_game = game_active.ToBoolean();
+  std::map<std::string, RValue> game_relationships = use_game ? yytk->CallBuiltin("variable_instance_get", {game_active, "relationship_data"}).ToMap() : std::map<std::string, RValue>();
   std::vector<RValue> all_keys = yytk->CallBuiltin("variable_instance_get_names", {all_relationships}).ToVector();
   for (RValue key : all_keys)
   {
-    RValue relationship = all_relationships[key.ToString()];
+    std::string key_str = key.ToString();
+    RValue relationship = (use_game && game_relationships.contains(key_str)) ? game_relationships[key_str] : all_relationships[key_str];
     std::string pidA = relationship["pidA"].ToString();
     std::string pidB = relationship["pidB"].ToString();
     int pidMatch = pidA == pid ? 1 : pidB == pid ? 2
