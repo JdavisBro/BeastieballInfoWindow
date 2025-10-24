@@ -133,7 +133,7 @@ void CheatsTab()
   bool debug_menu = yytk->CallBuiltin("variable_instance_get", {game, "debug_console"}).ToBoolean();
   bool debug_menu_new = debug_menu;
   ImGui::Checkbox("Debug Menu", &debug_menu_new);
-  if (debug_menu != debug_menu_new || yytk->CallBuiltin("keyboard_check_pressed", {192}))
+  if (debug_menu != debug_menu_new || yytk->CallBuiltin("keyboard_check_pressed", {192}).ToBoolean())
     yytk->CallBuiltin("variable_instance_set", {game, "debug_console", !debug_menu});
 
   if (ImGui::Button("Teleport to Map Center"))
