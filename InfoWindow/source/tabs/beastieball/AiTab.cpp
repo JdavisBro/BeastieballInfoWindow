@@ -34,7 +34,9 @@ void MakeAi()
 {
   RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
   RValue ai_choicegraph = InstanceGet(game_active, "ai_choicegraph");
-  if (!game_active.ToBoolean() || ai_choicegraph.ToBoolean())
+  int selection_mode = InstanceGet(game_active, "selection_mode").ToInt32();
+  bool scene_playing = yytk->CallBuiltin("variable_global_get", {"SCENE_PLAYING"}).ToBoolean();
+  if (!game_active.ToBoolean() || ai_choicegraph.ToBoolean() || selection_mode != 0 || scene_playing)
   {
     return;
   }
@@ -49,7 +51,8 @@ void MakeAi()
       break;
     }
   }
-  if (found_ai == -1)
+  // ai not found or player turned.
+  if (found_ai == -1 || InstanceGet(game_active, "teams")[!found_ai]["turned"].ToBoolean())
   {
     return;
   }
