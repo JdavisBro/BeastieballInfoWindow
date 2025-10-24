@@ -39,7 +39,6 @@ void ResetDeviceWGL();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
 static HWND hwnd;
-static ImGuiIO io;
 static WNDCLASSEXW wc;
 
 int ImguiCreateWindow()
@@ -71,10 +70,11 @@ int ImguiCreateWindow()
   IMGUI_CHECKVERSION();
   ImGui::CreateContext();
 
-  ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
-  ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
+  ImGuiIO &io = ImGui::GetIO();
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableKeyboard; // Enable Keyboard Controls
+  io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
 
-  ImGui::GetIO().ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+  io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
 
   // Setup Dear ImGui style
   ImGui::StyleColorsDark();
@@ -90,7 +90,10 @@ int ImguiCreateWindow()
   ImGui_ImplOpenGL3_Init();
 
   // Load Fonts
-  ImGui::GetIO().Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf");
+  io.FontDefault = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf");
+  ImFontConfig cfg;
+  cfg.MergeMode = true;
+  io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\MSJH.TTC", 0.0f, &cfg);
 
   return 0;
 }

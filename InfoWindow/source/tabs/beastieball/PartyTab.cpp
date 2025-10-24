@@ -194,7 +194,7 @@ void DrawRelationships()
       ImGui::SameLine();
     RelationshipData relationship = *selected_copy.relationships_sorted[i];
     ImGui::BeginChild(relationship.otherPid.c_str(), ImVec2(300, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
-    ImGui::Text("%s", relationship.otherName.c_str());
+    ImGui::Text(relationship.otherName.c_str());
     double powChanged = relationship.pow - relationship.prevPow;
     ImGui::Text("Pow: %.2f • ± %.2f", relationship.pow, powChanged);
     double friendlyChanged = relationship.friendly - relationship.prevFriendly;

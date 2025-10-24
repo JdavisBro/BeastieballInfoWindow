@@ -103,7 +103,7 @@ void SaveTable(int &slot)
       for (RValue beastie : team)
       {
         ImGui::TableNextColumn();
-        ImGui::Text("%s#%s", beastie["name"].ToString(), beastie["number"].ToString());
+        ImGui::Text(std::format("{}#{}", beastie["name"].ToString(), beastie["number"].ToString()).c_str());
       }
     }
   }
