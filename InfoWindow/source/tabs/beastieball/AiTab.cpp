@@ -30,16 +30,15 @@ void Undo()
   }
 }
 
-void MakeAi()
+int FindAi(RValue game_active)
 {
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
+  if (!game_active.ToBoolean())
+    return -2;
   RValue ai_choicegraph = InstanceGet(game_active, "ai_choicegraph");
   RValue selection_mode = InstanceGet(game_active, "selection_mode");
   bool scene_playing = yytk->CallBuiltin("variable_global_get", {"SCENE_PLAYING"}).ToBoolean();
-  if (!game_active.ToBoolean() || ai_choicegraph.ToBoolean() || selection_mode.ToInt32() != 0 || scene_playing)
-  {
-    return;
-  }
+  if (ai_choicegraph.ToBoolean() || selection_mode.ToInt32() != 0 || scene_playing)
+    return -1;
   int found_ai = -1;
   for (int i = 0; i < 2; i += 1)
   {
@@ -54,8 +53,15 @@ void MakeAi()
   // ai not found or player turned.
   if (found_ai == -1 || InstanceGet(game_active, "teams")[!found_ai]["turned"].ToBoolean())
   {
-    return;
+    return -1;
   }
+  return found_ai;
+}
+
+int player_team = -1;
+
+void ActuallyMakeAi(RValue &game_active, int &found_ai)
+{
   Undo();
   yytk->CallGameScript("gml_Script_board_snapshot", {});
   InstanceSet(game_active, "ai_selecting", RValue(found_ai));
@@ -64,6 +70,34 @@ void MakeAi()
   InstanceSet(game_active, "ai_choicegraph", aitree);
   RValue snapshot = yytk->CallGameScript("gml_Script_board_snapshot_save", {RValue(false)});
   aitree["root_snapshot"] = snapshot;
+}
+
+void AutoMakeAi()
+{
+  RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
+  int found_ai = FindAi(game_active);
+  if (found_ai == -2)
+  {
+    player_team = -1;
+    return;
+  }
+  if (player_team > -1 && InstanceGet(game_active, "teams")[player_team]["turned"].ToBoolean())
+    player_team = -1;
+  if (player_team >= 0)
+    return;
+  if (found_ai < 0)
+    return;
+  player_team = !found_ai;
+  ActuallyMakeAi(game_active, found_ai);
+}
+
+void MakeAi()
+{
+  RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
+  int found_ai = FindAi(game_active);
+  if (found_ai < 0)
+    return;
+  ActuallyMakeAi(game_active, found_ai);
 }
 
 void DeleteAi()
@@ -362,10 +396,14 @@ void SimulateTree()
   sim_total += SIM_COUNT;
 }
 
+bool auto_create_ai = true;
+
 // MARK: Tab Stuff
 void AiTab()
 {
   replay_saved_tree = false;
+  if (auto_create_ai)
+    AutoMakeAi();
   if (!ImGui::Begin("AI Info"))
   {
     ImGui::End();
@@ -376,6 +414,8 @@ void AiTab()
   ImGui::SameLine();
   if (ImGui::Button("Simulate Chances"))
     SimulateTree();
+  ImGui::SameLine();
+  ImGui::Checkbox("Auto Create AI", &auto_create_ai);
   CreateAiTree();
   DrawAiTree();
 
