@@ -72,6 +72,44 @@ void TeleportToMapWorldPosition(RValue &game, const char *x_key, const char *y_k
   yytk->CallGameScript("gml_Script_level_goto", {level["name"]});
 }
 
+void SaveTable(int &slot)
+{
+  ImGui::BeginTable("savetable", 8, ImGuiTableFlags_Borders);
+  ImGui::TableSetupColumn("Index", ImGuiTableColumnFlags_WidthFixed);
+  ImGui::TableSetupColumn("Player Name");
+  ImGui::TableSetupColumn("Location");
+  ImGui::TableSetupColumn("Beastie 1");
+  ImGui::TableSetupColumn("Beastie 2");
+  ImGui::TableSetupColumn("Beastie 3");
+  ImGui::TableSetupColumn("Beastie 4");
+  ImGui::TableSetupColumn("Beastie 5");
+  ImGui::TableHeadersRow();
+  RValue stumps = yytk->CallBuiltin("variable_global_get", {"savedata_stumps"});
+  int stump_count = yytk->CallBuiltin("array_length", {stumps}).ToInt32();
+  for (int i = 0; i <= stump_count; i++)
+  {
+    ImGui::TableNextRow();
+    ImGui::TableNextColumn();
+    if (ImGui::Selectable(std::to_string(i).c_str(), i == slot, ImGuiSelectableFlags_SpanAllColumns))
+      slot = i;
+    if (i < stump_count && !stumps[i].IsUndefined())
+    {
+      RValue stump = stumps[i];
+      ImGui::TableNextColumn();
+      ImGui::Text(stump["name"].ToCString());
+      ImGui::TableNextColumn();
+      ImGui::Text(yytk->CallGameScript("gml_Script_level_location_name", {stump["level"]}).ToCString());
+      std::vector<RValue> team = stump["team_party"].ToVector();
+      for (RValue beastie : team)
+      {
+        ImGui::TableNextColumn();
+        ImGui::Text("%s#%s", beastie["name"].ToString(), beastie["number"].ToString());
+      }
+    }
+  }
+  ImGui::EndTable();
+}
+
 bool teleport_on_middle_click = true;
 
 void CheatsTab()
@@ -116,26 +154,7 @@ void CheatsTab()
     yytk->CallGameScript("gml_Script_savedata_load", {});
     yytk->CallGameScript("gml_Script_data_load_level", {});
   }
-  RValue stumps = yytk->CallBuiltin("variable_global_get", {"savedata_stumps"});
-  int stump_count = yytk->CallBuiltin("array_length", {stumps}).ToInt32();
-  for (int i = 0; i <= stump_count; i++)
-  {
-    std::string text;
-    if (i < stump_count && !stumps[i].IsUndefined())
-    {
-      RValue stump = stumps[i];
-      if (stump.IsUndefined())
-        continue;
-      std::string note;
-      text = std::format("{} • {}", i, stump["name"].ToString());
-    }
-    else
-    {
-      text = std::format("{} • EMPTY", i);
-    }
-    if (ImGui::Selectable(text.c_str(), i == slot))
-      slot = i;
-  }
+  SaveTable(slot);
   if (prev_slot != slot)
     yytk->CallBuiltin("variable_global_set", {"SAVE_SLOT", slot});
 
