@@ -34,9 +34,9 @@ void MakeAi()
 {
   RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
   RValue ai_choicegraph = InstanceGet(game_active, "ai_choicegraph");
-  int selection_mode = InstanceGet(game_active, "selection_mode").ToInt32();
+  RValue selection_mode = InstanceGet(game_active, "selection_mode");
   bool scene_playing = yytk->CallBuiltin("variable_global_get", {"SCENE_PLAYING"}).ToBoolean();
-  if (!game_active.ToBoolean() || ai_choicegraph.ToBoolean() || selection_mode != 0 || scene_playing)
+  if (!game_active.ToBoolean() || ai_choicegraph.ToBoolean() || selection_mode.ToInt32() != 0 || scene_playing)
   {
     return;
   }
