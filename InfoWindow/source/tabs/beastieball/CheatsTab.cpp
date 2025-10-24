@@ -153,6 +153,7 @@ void CheatsTab()
   {
     yytk->CallGameScript("gml_Script_savedata_load", {});
     yytk->CallGameScript("gml_Script_data_load_level", {});
+    yytk->CallGameScript("gml_Script_menu_level_out_all", {});
   }
   SaveTable(slot);
   if (prev_slot != slot)
