@@ -124,17 +124,20 @@ void CheatsTab()
   if (teleport_on_middle_click && yytk->CallBuiltin("mouse_check_button_pressed", {3}))
     TeleportToMapWorldPosition(game, "mouse_world_x", "mouse_world_y", 380.0);
 
+  bool debug_menu = yytk->CallBuiltin("variable_instance_get", {game, "debug_console"}).ToBoolean();
+  if (yytk->CallBuiltin("keyboard_check_pressed", {192}).ToBoolean())
+    yytk->CallBuiltin("variable_instance_set", {game, "debug_console", !debug_menu});
+
   if (!ImGui::Begin("Cheats"))
   {
     ImGui::End();
     return;
   }
 
-  bool debug_menu = yytk->CallBuiltin("variable_instance_get", {game, "debug_console"}).ToBoolean();
   bool debug_menu_new = debug_menu;
   ImGui::Checkbox("Debug Menu", &debug_menu_new);
-  if (debug_menu != debug_menu_new || yytk->CallBuiltin("keyboard_check_pressed", {192}).ToBoolean())
-    yytk->CallBuiltin("variable_instance_set", {game, "debug_console", !debug_menu});
+  if (debug_menu != debug_menu_new)
+    yytk->CallBuiltin("variable_instance_set", {game, "debug_console", debug_menu_new});
 
   if (ImGui::Button("Teleport to Map Center"))
     TeleportToMapWorldPosition(game, "world_x", "world_y");
