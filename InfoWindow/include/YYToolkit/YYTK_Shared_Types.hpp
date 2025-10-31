@@ -1722,21 +1722,6 @@ namespace YYTK
 		// Only applicable for VALUE_ARRAY RValues.
 		RValue* ToArray();
 
-		// Checks if accesses to the RValue cause an exception.
-		bool IsUndefined() const;
-
-		// Checks if accesses to nested members of the RValue are safe.
-		bool IsStruct() const;
-
-		// Checks if the RValue can be safely converted to a number.
-		bool IsNumberConvertible() const;
-
-		// Checks if the RValue is a string.
-		bool IsString() const;
-
-		// Checks if the RValue is an array.
-		bool IsArray() const;
-
 		/* Constructors / destructors */
 
 		// Empty constructor, creates an undefined RValue (not an unset one).
@@ -1762,8 +1747,9 @@ namespace YYTK
 			IN const Integer& Value
 		)
 		{
+			*this = RValue();
+
 			this->m_i64 = static_cast<int64_t>(Value);
-			this->m_Flags = 0;
 			this->m_Kind = VALUE_INT64;
 		}
 
@@ -1775,8 +1761,9 @@ namespace YYTK
 			IN const TDoubleCompatible& Value
 		)
 		{
+			*this = RValue();
+
 			this->m_Real = static_cast<double>(Value);
-			this->m_Flags = 0;
 			this->m_Kind = VALUE_REAL;
 		}
 
@@ -1788,9 +1775,10 @@ namespace YYTK
 			IN TGameMakerObject Value
 		)
 		{
-			this->m_Pointer = (PVOID)Value;
+			*this = RValue();
+
+			this->m_Pointer = (PVOID)(Value);
 			this->m_Kind = VALUE_OBJECT;
-			this->m_Flags = 0;
 		}
 
 		RValue(
@@ -1851,7 +1839,7 @@ namespace YYTK
 			IN std::string_view MemberName
 			);
 
-		RValue operator[](
+		const RValue& operator[](
 			IN std::string_view MemberName
 			) const;
 
@@ -1872,6 +1860,9 @@ namespace YYTK
 		explicit operator int32_t();
 
 		explicit operator int64_t();
+
+	private:
+		void __Free();
 	};
 #pragma pack(pop)
 
@@ -1909,7 +1900,7 @@ namespace YYTK
 		int m_Flags;
 		YYObjectBase* m_Prototype;
 
-		const char* GetName() const;
+		const char* GetName() const { return this->m_Name; }
 	};
 
 	struct CScript
@@ -1928,7 +1919,7 @@ namespace YYTK
 		const char* m_Name;
 		int m_Offset;
 
-		const char* GetName() const;
+		const char* GetName() const { return this->m_Name; }
 	};
 
 	struct YYGMLFuncs
@@ -1976,10 +1967,6 @@ namespace YYTK
 		) const;
 
 		int32_t GetMemberCount() const;
-
-		bool ContainsValue(
-			IN std::string_view MemberName
-		) const;
 
 		static CInstance* FromInstanceID(
 			IN int32_t InstanceID
@@ -2424,8 +2411,6 @@ namespace YYTK
 	// Seems to be mostly stable, some elements at the end are however omitted
 	struct CRoom
 	{
-		friend struct YYTKPrivateInterfaceImpl;
-
 		int32_t m_LastTile;
 		CRoom* m_InstanceHandle;
 		const char* m_Caption;
@@ -2730,8 +2715,6 @@ namespace YYTK
 
 	struct CInstance : YYObjectBase
 	{
-		friend struct YYTKPrivateInterfaceImpl;
-
 		int64_t m_CreateCounter;
 		CObjectGM* m_Object;
 		CPhysicsObject* m_PhysicsObject;
@@ -2809,10 +2792,6 @@ namespace YYTK
 		) const;
 
 		int32_t GetMemberCount() const;
-
-		bool ContainsValue(
-			IN std::string_view MemberName
-		) const;
 
 		static CInstance* FromInstanceID(
 			IN int32_t InstanceID

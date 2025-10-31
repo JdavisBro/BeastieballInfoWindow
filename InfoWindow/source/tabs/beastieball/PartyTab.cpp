@@ -386,7 +386,7 @@ bool DrawParty()
   if (!data.ToBoolean())
     return false;
   RValue party = data["team_party"];
-  if (!party.IsArray())
+  if (!party.m_Kind == VALUE_ARRAY)
     return false;
   int party_count = yytk->CallBuiltin("array_length", {party}).ToInt32();
   if (!party_count)

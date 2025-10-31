@@ -57,7 +57,7 @@ void TeleportToMapWorldPosition(RValue &game, const char *x_key, const char *y_k
   double x = map[x_key].ToDouble() + (x_offset / zoom);
   double y = map[y_key].ToDouble() + (y_offset / zoom);
   RValue level = FindLevel(x, y);
-  if (level.IsUndefined())
+  if (level.m_Kind == VALUE_UNDEFINED)
     return;
   std::string target_level = level["name"].ToString();
   on_level_load_go_to = {x, y};
@@ -92,7 +92,7 @@ void SaveTable(int &slot)
     ImGui::TableNextColumn();
     if (ImGui::Selectable(std::to_string(i).c_str(), i == slot, ImGuiSelectableFlags_SpanAllColumns))
       slot = i;
-    if (i < stump_count && !stumps[i].IsUndefined())
+    if (i < stump_count && stumps[i].m_Kind != VALUE_UNDEFINED)
     {
       RValue stump = stumps[i];
       ImGui::TableNextColumn();

@@ -45,7 +45,7 @@ StorageType GetStorageType(RValue &object)
 
 RValue GetIndex(int i, RValue &parent, RValue &name, StorageType type)
 {
-  if (parent.IsUndefined())
+  if (parent.m_Kind == VALUE_UNDEFINED)
   {
     if (i == -1)
     {
@@ -279,7 +279,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   }
   ImGui::EndChild();
   ImGui::EndChild();
-  if (selected >= start_index && !selected_key.IsUndefined())
+  if (selected >= start_index && selected_key.m_Kind != VALUE_UNDEFINED)
   {
     ImGui::SameLine();
     StorageType new_type = GetStorageType(selected_value);
@@ -292,7 +292,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     {
       BeginEndPane();
       RValue new_value = ValueSetter(selected_key, selected_value, just_changed);
-      if (!new_value.IsUndefined())
+      if (new_value.m_Kind != VALUE_UNDEFINED)
       {
         switch (type)
         {

@@ -131,7 +131,7 @@ AiBranch AddBranch(RValue branch)
   if (branch_rep.eval > max_eval)
     max_eval = branch_rep.eval;
   RValue children = branch["children"];
-  if (children.IsArray())
+  if (children.m_Kind == VALUE_ARRAY)
   {
     int32_t length = yytk->CallBuiltin("array_length", {children}).ToInt32();
     for (int32_t i = 0; i < length; i++)
@@ -150,9 +150,9 @@ void CreateAiTree()
   RValue ai_choicegraph = InstanceGet(game_active, "ai_choicegraph");
   if (!ai_choicegraph.ToBoolean())
     return;
-  while (!ai_choicegraph["parent"].IsUndefined())
+  while (ai_choicegraph["parent"].m_Kind != VALUE_UNDEFINED)
     ai_choicegraph = ai_choicegraph["parent"];
-  if (!ai_choicegraph["children"].IsArray() || !yytk->CallBuiltin("array_length", {ai_choicegraph["children"]}).ToInt32())
+  if (ai_choicegraph["children"].m_Kind != VALUE_ARRAY || !yytk->CallBuiltin("array_length", {ai_choicegraph["children"]}).ToInt32())
     return;
   sim_total = 0;
   max_eval = 0;
@@ -201,7 +201,7 @@ PFUNC_YYGMLScript aitreeSelectionSubmitOriginal = nullptr;
 RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
   RValue tree = Self->ToRValue();
-  if (tree["children"].IsArray() && numArgs > 1)
+  if (tree["children"].m_Kind == VALUE_ARRAY && numArgs > 1)
   {
     double new_eval = (*Args[0]).ToDouble();
     double best_eval = tree["eval"].ToDouble();
@@ -211,7 +211,7 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
     else
       DbgPrint("favorite child does not have erratic");
   }
-  else if (numArgs == 0 || (*Args[0]).IsUndefined()) // is from board eval
+  else if (numArgs == 0 || (*Args[0]).m_Kind == VALUE_UNDEFINED) // is from board eval
   {
     RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
     int32_t ai_selecting = InstanceGet(game_active, "ai_selecting").ToInt32();
@@ -226,7 +226,7 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
       RValue checking = tree;
       bool path_correct = true;
       size_t path_index = rigged_for_path.size();
-      while (!checking["parent"].IsUndefined())
+      while (checking["parent"].m_Kind != VALUE_UNDEFINED)
       {
         if (path_index == 0)
         {
