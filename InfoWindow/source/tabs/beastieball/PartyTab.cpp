@@ -184,7 +184,19 @@ const char *GetRelationshipType(RelationshipData &relationship)
   }
 }
 
-void DrawRelationships()
+void SetRelationship(std::string &pid, std::string &pid2, const char *name, RValue value)
+{
+  RValue all_relationships = yytk->CallBuiltin("variable_global_get", {"relationships"});
+  RValue game_active = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
+  bool use_game = game_active.ToBoolean();
+  std::map<std::string, RValue> game_relationships = use_game ? yytk->CallBuiltin("variable_instance_get", {game_active, "relationship_data"}).ToMap() : std::map<std::string, RValue>();
+  std::string relationship_key = yytk->CallGameScript("gml_Script_relationship_get_key", {RValue(pid), RValue(pid2)}).ToString();
+  DbgPrint(relationship_key.c_str());
+  RValue relationship = (use_game && game_relationships.contains(relationship_key)) ? game_relationships[relationship_key] : all_relationships[relationship_key];
+  relationship[name] = value;
+}
+
+void DrawRelationships(ImGuiWindowFlags window_flags)
 {
   double window_width = ImGui::GetWindowWidth() - 16.0;
   double current_line = 0;
@@ -196,14 +208,32 @@ void DrawRelationships()
       current_line = 308;
     else if (i != 0)
       ImGui::SameLine();
-    RelationshipData relationship = *selected_copy.relationships_sorted[i];
-    ImGui::BeginChild(relationship.otherPid.c_str(), ImVec2(300, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY);
+    RelationshipData &relationship = *selected_copy.relationships_sorted[i];
+    ImGui::BeginChild(relationship.otherPid.c_str(), ImVec2(300, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_AutoResizeY, window_flags);
     ImGui::Text(relationship.otherName.c_str());
     double powChanged = relationship.pow - relationship.prevPow;
     ImGui::Text("Pow: %.2f • ± %.2f", relationship.pow, powChanged);
+    ImGui::PushItemWidth(150);
+    ImGui::InputDouble("##PowInput", &relationship.pow, 1.0, 100.0);
+    ImGui::PopItemWidth();
+    ImGui::SameLine();
+    if (ImGui::Button("Set"))
+      SetRelationship(selected_copy.pid, relationship.otherPid, "pow", RValue(relationship.pow));
     double friendlyChanged = relationship.friendly - relationship.prevFriendly;
     ImGui::Text("Friendly: %.2f • ± %.2f", relationship.friendly, friendlyChanged);
+    ImGui::SameLine();
+    if (ImGui::Button("Swap##Friendly"))
+    {
+      relationship.friendly = relationship.friendly == 0 ? 1 : -relationship.friendly;
+      SetRelationship(selected_copy.pid, relationship.otherPid, "friendly", RValue(relationship.friendly));
+    }
     ImGui::Text(relationship.hot ? "Spicy" : "Not Spicy");
+    ImGui::SameLine();
+    if (ImGui::Button("Swap##Hot"))
+    {
+      relationship.hot = !relationship.hot;
+      SetRelationship(selected_copy.pid, relationship.otherPid, "hot", RValue(relationship.hot));
+    }
     ImGui::Text("Type: %s • %s", GetRelationshipType(relationship), relationship.pow >= 350 ? "Formed" : "Not Formed");
     ImGui::Text("Attacks: %i : %i", relationship.myAttacks, relationship.otherAttacks);
     ImGui::EndChild();
@@ -376,7 +406,7 @@ void SelectedBeastie(RValue beastie)
   if (ImGui::BeginTabItem("Coaching"))
     DoStatSection(false, beastie, sport, sport_beastie, window_flags);
   ImGui::EndTabBar();
-  DrawRelationships();
+  DrawRelationships(window_flags);
   ImGui::EndChild();
 }
 
