@@ -32,6 +32,8 @@ void BeastieballCheck()
 	}
 }
 
+bool hooks_done = false;
+
 void DoHooks()
 {
 	// hook requests
@@ -41,6 +43,7 @@ void DoHooks()
 	}
 	// make hooks
 	CreateHooks();
+	hooks_done = true;
 }
 
 inline void SetNextDock(ImGuiID dockspace)
@@ -55,10 +58,19 @@ void FrameCallback(FWFrame &FrameContext)
 	static bool window_exists = false;
 	if (!window_exists)
 	{
-		ImguiCreateWindow();
+		if (!ImguiCreateWindow())
+		{
+			window_exists = true;
+		}
+		else
+		{
+			DbgPrint("[InfoWindow] Window Creation Failed.");
+		}
+	}
+	if (!hooks_done)
+	{
 		BeastieballCheck();
 		DoHooks();
-		window_exists = true;
 	}
 
 	ImGuiID dockspace;
