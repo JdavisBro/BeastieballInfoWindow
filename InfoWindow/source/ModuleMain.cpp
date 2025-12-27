@@ -32,6 +32,8 @@ void BeastieballCheck()
 	}
 }
 
+bool hooks_done = false;
+
 void DoHooks()
 {
 	// hook requests
@@ -41,6 +43,7 @@ void DoHooks()
 	}
 	// make hooks
 	CreateHooks();
+	hooks_done = true;
 }
 
 inline void SetNextDock(ImGuiID dockspace)
@@ -48,17 +51,33 @@ inline void SetNextDock(ImGuiID dockspace)
 	ImGui::SetNextWindowDockID(dockspace, ImGuiCond_FirstUseEver);
 }
 
-void FrameCallback(FWFrame &FrameContext)
+
+void CodeCallback(FWCodeEvent &Event)
 {
-	UNREFERENCED_PARAMETER(FrameContext);
+	auto [Self, Other, Code, ArgCount, Arg] = Event.Arguments();
+	Event.Call(Self, Other, Code, ArgCount, Arg);
+	
+	std::string name = Code->GetName();
+
+	if (name != "gml_Object_objGame_Draw_0")
+		return;
 
 	static bool window_exists = false;
 	if (!window_exists)
 	{
-		ImguiCreateWindow();
+		if (!ImguiCreateWindow())
+		{
+			window_exists = true;
+		}
+		else
+		{
+			DbgPrint("[InfoWindow] Window Creation Failed.");
+		}
+	}
+	if (!hooks_done)
+	{
 		BeastieballCheck();
 		DoHooks();
-		window_exists = true;
 	}
 
 	ImGuiID dockspace;
@@ -81,7 +100,10 @@ void FrameCallback(FWFrame &FrameContext)
 
 	// remove unfocus low fps.
 	if (is_beastieball)
-		yytk->CallBuiltin("game_set_speed", {RValue(30), RValue(0)});
+	{
+		RValue settings = yytk->CallBuiltin("variable_global_get", {RValue("SETTINGS")});
+		yytk->CallBuiltin("game_set_speed", {settings["framerate"], RValue(0)});
+	}
 }
 
 EXPORTED AurieStatus ModuleInitialize(
@@ -99,13 +121,13 @@ EXPORTED AurieStatus ModuleInitialize(
 
 	last_status = yytk->CreateCallback(
 			Module,
-			EVENT_FRAME,
-			FrameCallback,
+			EVENT_OBJECT_CALL,
+			CodeCallback,
 			0);
 
 	if (!AurieSuccess(last_status))
 	{
-		DbgPrintEx(LOG_SEVERITY_ERROR, "[InfoWindow] - Failed to register frame callback!");
+		DbgPrintEx(LOG_SEVERITY_ERROR, "[InfoWindow] - Failed to register code callback!");
 	}
 
 	DbgPrintEx(LOG_SEVERITY_DEBUG, "[InfoWindow] - Hello from PluginEntry!");
