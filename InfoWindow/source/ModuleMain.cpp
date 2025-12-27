@@ -51,9 +51,16 @@ inline void SetNextDock(ImGuiID dockspace)
 	ImGui::SetNextWindowDockID(dockspace, ImGuiCond_FirstUseEver);
 }
 
-void FrameCallback(FWFrame &FrameContext)
+
+void CodeCallback(FWCodeEvent &Event)
 {
-	UNREFERENCED_PARAMETER(FrameContext);
+	auto [Self, Other, Code, ArgCount, Arg] = Event.Arguments();
+	Event.Call(Self, Other, Code, ArgCount, Arg);
+	
+	std::string name = Code->GetName();
+
+	if (name != "gml_Object_objGame_Draw_0")
+		return;
 
 	static bool window_exists = false;
 	if (!window_exists)
@@ -114,13 +121,13 @@ EXPORTED AurieStatus ModuleInitialize(
 
 	last_status = yytk->CreateCallback(
 			Module,
-			EVENT_FRAME,
-			FrameCallback,
+			EVENT_OBJECT_CALL,
+			CodeCallback,
 			0);
 
 	if (!AurieSuccess(last_status))
 	{
-		DbgPrintEx(LOG_SEVERITY_ERROR, "[InfoWindow] - Failed to register frame callback!");
+		DbgPrintEx(LOG_SEVERITY_ERROR, "[InfoWindow] - Failed to register code callback!");
 	}
 
 	DbgPrintEx(LOG_SEVERITY_DEBUG, "[InfoWindow] - Hello from PluginEntry!");
