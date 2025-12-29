@@ -15,14 +15,21 @@ struct Vec2
   double y;
 };
 
+RValue GetObjectInstance(const char* object_name)
+{
+  RValue asset = yytk->CallBuiltin("asset_get_index", {object_name});
+  return yytk->CallBuiltin("instance_find", {asset, RValue(0)});
+
+}
+
 void TeleportToPosition(Vec2 position)
 {
-  RValue objPlayer_asset = yytk->CallBuiltin("asset_get_index", {"objPlayer"});
-  RValue player = yytk->CallBuiltin("instance_find", {objPlayer_asset, RValue(0)});
+  RValue player = GetObjectInstance("objPlayer");
   double z = yytk->CallGameScript("gml_Script_collider_gravity_raycast", {position.x, position.y}).ToDouble();
   yytk->CallBuiltin("variable_instance_set", {player, "x", position.x});
   yytk->CallBuiltin("variable_instance_set", {player, "y", position.y});
   yytk->CallBuiltin("variable_instance_set", {player, "z", z});
+  yytk->CallBuiltin("variable_instance_set", {player, "z_last", z}); // used for camera position, not updated until moved
 }
 
 bool on_level_load_go = false;
@@ -114,6 +121,7 @@ void SaveTable(int &slot)
 bool teleport_on_middle_click = true;
 bool infinite_jumps = false;
 bool view_collision = false;
+bool camera_always_follow_player = false;
 
 void ReloadLevel(RValue &game)
 {
@@ -203,8 +211,7 @@ void CheatsTab()
     TeleportToPosition(on_level_load_go_to);
     on_level_load_go = false;
   }
-  RValue objGame_asset = yytk->CallBuiltin("asset_get_index", {"objGame"});
-  RValue game = yytk->CallBuiltin("instance_find", {objGame_asset, RValue(0)});
+  RValue game = GetObjectInstance("objGame");
   if (teleport_on_middle_click && yytk->CallBuiltin("mouse_check_button_pressed", {3}))
     TeleportToMapWorldPosition(game, "mouse_world_x", "mouse_world_y", 380.0);
 
@@ -212,13 +219,17 @@ void CheatsTab()
   if (yytk->CallBuiltin("keyboard_check_pressed", {192}).ToBoolean())
     yytk->CallBuiltin("variable_instance_set", {game, "debug_console", !debug_menu});
 
+  RValue player = GetObjectInstance("objPlayer");
   if (infinite_jumps) {
     if (yytk->CallBuiltin("keyboard_check_pressed", {RValue(32.0)}).ToBoolean()) {
-      RValue player_asset = yytk->CallBuiltin("asset_get_index", {RValue("objPlayer")});
-      RValue player_instance = yytk->CallBuiltin("instance_find", {player_asset, RValue(0)});
-      RValue jump_speed = yytk->CallBuiltin("variable_instance_get", {player_instance, RValue("jump_speed")});
-      yytk->CallBuiltin("variable_instance_set", {player_instance, RValue("z_speed"), jump_speed});
+      RValue jump_speed = yytk->CallBuiltin("variable_instance_get", {player, RValue("jump_speed")});
+      yytk->CallBuiltin("variable_instance_set", {player, RValue("z_speed"), jump_speed});
     }
+  }
+
+  if (camera_always_follow_player) {
+    RValue player_z = yytk->CallBuiltin("variable_instance_get", {player, RValue("z")});
+    yytk->CallBuiltin("variable_instance_set", {player, RValue("z_last"), player_z});
   }
 
   if (!ImGui::Begin("Cheats"))
@@ -233,6 +244,7 @@ void CheatsTab()
     yytk->CallBuiltin("variable_instance_set", {game, "debug_console", debug_menu_new});
 
   ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
+  ImGui::Checkbox("Camera Always Follow Player", &camera_always_follow_player);
 
   if (ImGui::Checkbox("View Collision Only", &view_collision))
     ToggleCollision(game);
