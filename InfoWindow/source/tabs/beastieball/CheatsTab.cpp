@@ -111,6 +111,7 @@ void SaveTable(int &slot)
 }
 
 bool teleport_on_middle_click = true;
+bool infinite_jumps = false;
 
 void CheatsTab()
 {
@@ -128,6 +129,15 @@ void CheatsTab()
   if (yytk->CallBuiltin("keyboard_check_pressed", {192}).ToBoolean())
     yytk->CallBuiltin("variable_instance_set", {game, "debug_console", !debug_menu});
 
+  if (infinite_jumps) {
+    if (yytk->CallBuiltin("keyboard_check_pressed", {RValue(32.0)}).ToBoolean()) {
+      RValue player_asset = yytk->CallBuiltin("asset_get_index", {RValue("objPlayer")});
+      RValue player_instance = yytk->CallBuiltin("instance_find", {player_asset, RValue(0)});
+      RValue jump_speed = yytk->CallBuiltin("variable_instance_get", {player_instance, RValue("jump_speed")});
+      yytk->CallBuiltin("variable_instance_set", {player_instance, RValue("z_speed"), jump_speed});
+    }
+  }
+
   if (!ImGui::Begin("Cheats"))
   {
     ImGui::End();
@@ -138,6 +148,8 @@ void CheatsTab()
   ImGui::Checkbox("Debug Menu", &debug_menu_new);
   if (debug_menu != debug_menu_new)
     yytk->CallBuiltin("variable_instance_set", {game, "debug_console", debug_menu_new});
+
+  ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
 
   if (ImGui::Button("Teleport to Map Center"))
     TeleportToMapWorldPosition(game, "world_x", "world_y");
