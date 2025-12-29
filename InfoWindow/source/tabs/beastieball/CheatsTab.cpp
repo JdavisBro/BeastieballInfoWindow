@@ -5,6 +5,7 @@ using namespace YYTK;
 #include "imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
 #include "../../ModuleMain.h"
+#include "../../Hooks.h"
 
 #include "CheatsTab.h"
 
@@ -112,6 +113,88 @@ void SaveTable(int &slot)
 
 bool teleport_on_middle_click = true;
 bool infinite_jumps = false;
+bool view_collision = false;
+
+void ReloadLevel(RValue &game)
+{
+    yytk->CallGameScript("gml_Script_data_update_player_pos", {});
+    yytk->CallGameScript("gml_Script_SceneClear", {});
+    RValue level_id = yytk->CallBuiltin("variable_instance_get", {game, "level_id"});
+    yytk->CallGameScript("gml_Script_level_goto", {level_id, RValue(true)});
+}
+
+void SetGroupRenders(RValue &group)
+{
+    RValue default_renders = yytk->CallBuiltin("variable_instance_get", {group, RValue("DEFAULT_RENDERS")});
+    RValue collider = group["collider"];
+    if (default_renders.IsUndefined()) {
+      RValue renders = group["renders"];
+      yytk->CallBuiltin("variable_instance_set", {group, RValue("DEFAULT_RENDERS"), renders});
+      default_renders = renders;
+    }
+    group["renders"] = view_collision ? collider : default_renders;
+}
+
+void ToggleCollision(RValue &game)
+{
+  RValue browser = yytk->CallBuiltin("variable_global_get", {RValue("__browser")});
+  std::map<std::string, RValue> models = browser["content"]["models"].ToMap();
+  for (auto model_pair : models) {
+    auto [name, browser_model] = model_pair;
+    if (!browser_model["loaded"].ToBoolean())
+      continue;
+    RValue model = browser_model["model"];
+    std::vector<RValue> model_groups = model["groups_array"].ToVector();
+    for (RValue group : model_groups) {
+      SetGroupRenders(group);
+    }
+  }
+  ReloadLevel(game);
+}
+
+PFUNC_YYGMLScript shapeTriangulateOriginal = nullptr;
+RValue &ShapeTriangulate(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  if (view_collision) {
+    RValue shape = Self->ToRValue();
+    RValue solid = shape["solid"];
+    RValue water = shape["water"];;
+    shape["visible"] = solid.ToBoolean() || water.ToBoolean();
+  }
+  shapeTriangulateOriginal(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+
+PFUNC_YYGMLScript groupAddToOriginal = nullptr;
+RValue &GroupAddTo(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  if (view_collision) {
+    RValue group = Self->ToRValue();
+    SetGroupRenders(group);
+  }
+  groupAddToOriginal(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+
+PFUNC_YYGMLScript buildBakedModelsOriginal = nullptr;
+RValue &BuildBakedModels(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  if (view_collision) {
+    std::vector<RValue> models = yytk->CallBuiltin("variable_instance_get", {Self, RValue("models_array")}).ToVector();
+    for (RValue model : models) {
+      model["effect_layer"] = RValue(0);
+    }
+  }
+  buildBakedModelsOriginal(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+
+void CheatsHooks()
+{
+  RequestHook("gml_Script_triangulate@", "class_shape", "IW shapeTriangulate", ShapeTriangulate, reinterpret_cast<PVOID *>(&shapeTriangulateOriginal));
+  RequestHook("gml_Script_build_baked_models@", "class_level", "IW build_baked_models", BuildBakedModels, reinterpret_cast<PVOID *>(&buildBakedModelsOriginal));
+  RequestHook("gml_Script_AddTo@", "DotobjClassGroup", "IW groupaddto", GroupAddTo, reinterpret_cast<PVOID *>(&groupAddToOriginal));
+}
 
 void CheatsTab()
 {
@@ -150,6 +233,12 @@ void CheatsTab()
     yytk->CallBuiltin("variable_instance_set", {game, "debug_console", debug_menu_new});
 
   ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
+
+  if (ImGui::Checkbox("View Collision Only", &view_collision))
+    ToggleCollision(game);
+
+  if (ImGui::Button("Reload Level"))
+    ReloadLevel(game);
 
   if (ImGui::Button("Teleport to Map Center"))
     TeleportToMapWorldPosition(game, "world_x", "world_y");
