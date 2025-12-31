@@ -78,38 +78,31 @@ void CodeCallback(FWCodeEvent &Event)
 	}
 	if (!hooks_done)
 	{
-	DbgPrint("[InfoWindow] Hooks Setup");	
 		BeastieballCheck();
 		DoHooks();
 	}
 
 	ImGuiID dockspace;
-	DbgPrint("[InfoWindow] Frame Setup");
 	if (!ImguiFrameSetup(dockspace))
 	{
 		SetNextDock(dockspace);
-		DbgPrint("[InfoWindow] Object Tab");
 		ObjectTab();
 		if (is_beastieball)
 		{
 			SetNextDock(dockspace);
-			DbgPrint("[InfoWindow] Ai Tab");
 			AiTab();
 			SetNextDock(dockspace);
-			DbgPrint("[InfoWindow] Party Tab");
 			PartyTab();
 			SetNextDock(dockspace);
 			CheatsTab();
 		}
 		
-		DbgPrint("[InfoWindow] Frame End");
 		ImguiFrameEnd();
 	}
 
 	// remove unfocus low fps.
 	if (is_beastieball)
 	{
-		DbgPrint("[InfoWindow] Set Speed");
 		RValue settings = yytk->CallBuiltin("variable_global_get", {RValue("SETTINGS")});
 		yytk->CallBuiltin("game_set_speed", {settings["framerate"], RValue(0)});
 	}
