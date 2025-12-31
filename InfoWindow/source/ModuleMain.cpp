@@ -40,6 +40,7 @@ void DoHooks()
 	if (is_beastieball)
 	{
 		AiHooks();
+		CheatsHooks();
 	}
 	// make hooks
 	CreateHooks();
