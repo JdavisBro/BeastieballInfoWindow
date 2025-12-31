@@ -135,7 +135,7 @@ void SetGroupRenders(RValue &group)
 {
     RValue default_renders = yytk->CallBuiltin("variable_instance_get", {group, RValue("DEFAULT_RENDERS")});
     RValue collider = group["collider"];
-    if (default_renders.IsUndefined()) {
+    if (default_renders.m_Kind == VALUE_UNDEFINED) {
       RValue renders = group["renders"];
       yytk->CallBuiltin("variable_instance_set", {group, RValue("DEFAULT_RENDERS"), renders});
       default_renders = renders;
