@@ -9,62 +9,51 @@
 // This is provided for completeness, however it is strongly recommended you use OpenGL with SDL or GLFW.
 
 #include "imgui.h"
-#include "backends/imgui_impl_opengl3.h"
 #include "backends/imgui_impl_win32.h"
-#ifndef WIN32_LEAN_AND_MEAN
-#define WIN32_LEAN_AND_MEAN
-#endif
-#include <windows.h>
-#include <GL/gl.h>
+#include "backends/imgui_impl_dx10.h"
+#include <d3d10_1.h>
+#include <d3d10.h>
 #include <tchar.h>
 
-#pragma comment(lib, "opengl32.lib")
-
-// Data stored per platform window
-struct WGL_WindowData
-{
-  HDC hDC;
-};
-
 // Data
-static HGLRC g_hRC;
-static WGL_WindowData g_MainWindow;
-static int g_Width;
-static int g_Height;
+static ID3D10Device*            g_pd3dDevice = nullptr;
+static IDXGISwapChain*          g_pSwapChain = nullptr;
+static bool                     g_SwapChainOccluded = false;
+static UINT                     g_ResizeWidth = 0, g_ResizeHeight = 0;
+static ID3D10RenderTargetView*  g_mainRenderTargetView = nullptr;
 
 // Forward declarations of helper functions
-bool CreateDeviceWGL(HWND hWnd, WGL_WindowData *data);
-void CleanupDeviceWGL(HWND hWnd, WGL_WindowData *data);
-void ResetDeviceWGL();
+bool CreateDeviceD3D(HWND hWnd);
+void CleanupDeviceD3D();
+void CreateRenderTarget();
+void CleanupRenderTarget();
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam);
 
-static HWND hwnd;
-static WNDCLASSEXW wc;
+HWND hwnd;
+WNDCLASSEXW wc;
 
 int ImguiCreateWindow()
 {
-  // Make process DPI aware and obtain main monitor scale
-  // ImGui_ImplWin32_EnableDpiAwareness(); // FIXME: This somehow doesn't work in the Win32+OpenGL example. Why?
-  float main_scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{0, 0}, MONITOR_DEFAULTTOPRIMARY));
+    // Make process DPI aware and obtain main monitor scale
+    ImGui_ImplWin32_EnableDpiAwareness();
+    float main_scale = ImGui_ImplWin32_GetDpiScaleForMonitor(::MonitorFromPoint(POINT{ 0, 0 }, MONITOR_DEFAULTTOPRIMARY));
 
-  // Create application window
-  wc = {sizeof(wc), CS_OWNDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"InfoWindow", nullptr};
-  ::RegisterClassExW(&wc);
-  hwnd = ::CreateWindowW(wc.lpszClassName, L"InfoWindow", WS_OVERLAPPEDWINDOW, 100, 100, (int)(1280 * main_scale), (int)(800 * main_scale), nullptr, nullptr, wc.hInstance, nullptr);
+    // Create application window
+    wc = { sizeof(wc), CS_CLASSDC, WndProc, 0L, 0L, GetModuleHandle(nullptr), nullptr, nullptr, nullptr, nullptr, L"InfoWindow", nullptr };
+    ::RegisterClassExW(&wc);
+    hwnd = ::CreateWindowW(wc.lpszClassName, L"InfoWindow", WS_OVERLAPPEDWINDOW, 100, 100, (int)(1280 * main_scale), (int)(800 * main_scale), nullptr, nullptr, wc.hInstance, nullptr);
 
-  // Initialize OpenGL
-  if (!CreateDeviceWGL(hwnd, &g_MainWindow))
-  {
-    CleanupDeviceWGL(hwnd, &g_MainWindow);
-    ::DestroyWindow(hwnd);
-    ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
-    return 1;
-  }
-  wglMakeCurrent(g_MainWindow.hDC, g_hRC);
+    // Initialize Direct3D
+    if (!CreateDeviceD3D(hwnd))
+    {
+        CleanupDeviceD3D();
+        ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
+        return 1;
+    }
 
-  // Show the window
-  ::ShowWindow(hwnd, SW_SHOWDEFAULT);
-  ::UpdateWindow(hwnd);
+    // Show the window
+    ::ShowWindow(hwnd, SW_SHOWDEFAULT);
+    ::UpdateWindow(hwnd);
 
   // Setup Dear ImGui context
   IMGUI_CHECKVERSION();
@@ -85,9 +74,16 @@ int ImguiCreateWindow()
   style.ScaleAllSizes(main_scale); // Bake a fixed style scale. (until we have a solution for dynamic style scaling, changing this requires resetting Style + calling this again)
   style.FontScaleDpi = main_scale; // Set initial font scale. (using io.ConfigDpiScaleFonts=true makes this unnecessary. We leave both here for documentation purpose)
 
+  // When viewports are enabled we tweak WindowRounding/WindowBg so platform windows can look identical to regular ones.
+  if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+  {
+      style.WindowRounding = 0.0f;
+      style.Colors[ImGuiCol_WindowBg].w = 1.0f;
+  }
+
   // Setup Platform/Renderer backends
-  ImGui_ImplWin32_InitForOpenGL(hwnd);
-  ImGui_ImplOpenGL3_Init();
+  ImGui_ImplWin32_Init(hwnd);
+  ImGui_ImplDX10_Init(g_pd3dDevice);
 
   // Load Fonts
   io.FontDefault = io.Fonts->AddFontFromFileTTF("c:\\Windows\\Fonts\\segoeui.ttf");
@@ -100,6 +96,8 @@ int ImguiCreateWindow()
 
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
+bool closed = false;
+
 int ImguiFrameSetup(ImGuiID &dockspace)
 {
   // Poll and handle messages (inputs, window resize, etc.)
@@ -107,20 +105,33 @@ int ImguiFrameSetup(ImGuiID &dockspace)
   MSG msg;
   while (::PeekMessage(&msg, nullptr, 0U, 0U, PM_REMOVE))
   {
-    ::TranslateMessage(&msg);
-    ::DispatchMessage(&msg);
-    if (msg.message == WM_QUIT)
-    {
-      return 2;
-    }
+      ::TranslateMessage(&msg);
+      ::DispatchMessage(&msg);
+      if (msg.message == WM_QUIT)
+          closed = true;
   }
-  if (::IsIconic(hwnd))
-  {
+  if (closed)
     return 1;
+
+  // Handle window being minimized or screen locked
+  if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
+  {
+      ::Sleep(10);
+    return 1;
+  }
+  g_SwapChainOccluded = false;
+
+  // Handle window resize (we don't resize directly in the WM_SIZE handler)
+  if (g_ResizeWidth != 0 && g_ResizeHeight != 0)
+  {
+      CleanupRenderTarget();
+      g_pSwapChain->ResizeBuffers(0, g_ResizeWidth, g_ResizeHeight, DXGI_FORMAT_UNKNOWN, 0);
+      g_ResizeWidth = g_ResizeHeight = 0;
+      CreateRenderTarget();
   }
 
   // Start the Dear ImGui frame
-  ImGui_ImplOpenGL3_NewFrame();
+  ImGui_ImplDX10_NewFrame();
   ImGui_ImplWin32_NewFrame();
   ImGui::NewFrame();
   dockspace = ImGui::DockSpaceOverViewport();
@@ -133,27 +144,35 @@ int ImguiFrameSetup(ImGuiID &dockspace)
 
 int ImguiFrameEnd()
 {
-  // Rendering
   ImGui::Render();
-  glViewport(0, 0, g_Width, g_Height);
-  glClearColor(clear_color.x, clear_color.y, clear_color.z, clear_color.w);
-  glClear(GL_COLOR_BUFFER_BIT);
-  ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
+  const float clear_color_with_alpha[4] = { clear_color.x * clear_color.w, clear_color.y * clear_color.w, clear_color.z * clear_color.w, clear_color.w };
+  g_pd3dDevice->OMSetRenderTargets(1, &g_mainRenderTargetView, nullptr);
+  g_pd3dDevice->ClearRenderTargetView(g_mainRenderTargetView, clear_color_with_alpha);
+  ImGui_ImplDX10_RenderDrawData(ImGui::GetDrawData());
+
+  // Update and Render additional Platform Windows
+  ImGuiIO &io = ImGui::GetIO();
+  if (io.ConfigFlags & ImGuiConfigFlags_ViewportsEnable)
+  {
+      ImGui::UpdatePlatformWindows();
+      ImGui::RenderPlatformWindowsDefault();
+  }
 
   // Present
-  ::SwapBuffers(g_MainWindow.hDC);
+  HRESULT hr = g_pSwapChain->Present(1, 0);   // Present with vsync
+  //HRESULT hr = g_pSwapChain->Present(0, 0); // Present without vsync
+  g_SwapChainOccluded = (hr == DXGI_STATUS_OCCLUDED);
 
   return 0;
 }
 
 int ImguiShutdown()
 {
-  ImGui_ImplOpenGL3_Shutdown();
+  ImGui_ImplDX10_Shutdown();
   ImGui_ImplWin32_Shutdown();
   ImGui::DestroyContext();
 
-  CleanupDeviceWGL(hwnd, &g_MainWindow);
-  wglDeleteContext(g_hRC);
+  CleanupDeviceD3D();
   ::DestroyWindow(hwnd);
   ::UnregisterClassW(wc.lpszClassName, wc.hInstance);
 
@@ -161,33 +180,66 @@ int ImguiShutdown()
 }
 
 // Helper functions
-bool CreateDeviceWGL(HWND hWnd, WGL_WindowData *data)
+bool CreateDeviceD3D(HWND hWnd)
 {
-  HDC hDc = ::GetDC(hWnd);
-  PIXELFORMATDESCRIPTOR pfd = {0};
-  pfd.nSize = sizeof(pfd);
-  pfd.nVersion = 1;
-  pfd.dwFlags = PFD_DRAW_TO_WINDOW | PFD_SUPPORT_OPENGL | PFD_DOUBLEBUFFER;
-  pfd.iPixelType = PFD_TYPE_RGBA;
-  pfd.cColorBits = 32;
+    // Setup swap chain
+    // This is a basic setup. Optimally could use handle fullscreen mode differently. See #8979 for suggestions.
+    DXGI_SWAP_CHAIN_DESC sd;
+    ZeroMemory(&sd, sizeof(sd));
+    sd.BufferCount = 2;
+    sd.BufferDesc.Width = 0;
+    sd.BufferDesc.Height = 0;
+    sd.BufferDesc.Format = DXGI_FORMAT_R8G8B8A8_UNORM;
+    sd.BufferDesc.RefreshRate.Numerator = 60;
+    sd.BufferDesc.RefreshRate.Denominator = 1;
+    sd.Flags = DXGI_SWAP_CHAIN_FLAG_ALLOW_MODE_SWITCH;
+    sd.BufferUsage = DXGI_USAGE_RENDER_TARGET_OUTPUT;
+    sd.OutputWindow = hWnd;
+    sd.SampleDesc.Count = 1;
+    sd.SampleDesc.Quality = 0;
+    sd.Windowed = TRUE;
+    sd.SwapEffect = DXGI_SWAP_EFFECT_DISCARD;
 
-  const int pf = ::ChoosePixelFormat(hDc, &pfd);
-  if (pf == 0)
-    return false;
-  if (::SetPixelFormat(hDc, pf, &pfd) == FALSE)
-    return false;
-  ::ReleaseDC(hWnd, hDc);
+    UINT createDeviceFlags = 0;
+    //createDeviceFlags |= D3D10_CREATE_DEVICE_DEBUG;
+    HRESULT res = D3D10CreateDeviceAndSwapChain(nullptr, D3D10_DRIVER_TYPE_HARDWARE, nullptr, createDeviceFlags, D3D10_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice);
+    if (res == DXGI_ERROR_UNSUPPORTED) // Try high-performance WARP software driver if hardware is not available.
+        res = D3D10CreateDeviceAndSwapChain(nullptr, D3D10_DRIVER_TYPE_WARP, nullptr, createDeviceFlags, D3D10_SDK_VERSION, &sd, &g_pSwapChain, &g_pd3dDevice);
+    if (res != S_OK)
+        return false;
 
-  data->hDC = ::GetDC(hWnd);
-  if (!g_hRC)
-    g_hRC = wglCreateContext(data->hDC);
-  return true;
+    // Disable DXGI's default Alt+Enter fullscreen behavior.
+    // - You are free to leave this enabled, but it will not work properly with multiple viewports.
+    // - This must be done for all windows associated to the device. Our DX11 backend does this automatically for secondary viewports that it creates.
+    IDXGIFactory* pSwapChainFactory;
+    if (SUCCEEDED(g_pSwapChain->GetParent(IID_PPV_ARGS(&pSwapChainFactory))))
+    {
+        pSwapChainFactory->MakeWindowAssociation(hWnd, DXGI_MWA_NO_ALT_ENTER);
+        pSwapChainFactory->Release();
+    }
+
+    CreateRenderTarget();
+    return true;
 }
 
-void CleanupDeviceWGL(HWND hWnd, WGL_WindowData *data)
+void CleanupDeviceD3D()
 {
-  wglMakeCurrent(nullptr, nullptr);
-  ::ReleaseDC(hWnd, data->hDC);
+    CleanupRenderTarget();
+    if (g_pSwapChain) { g_pSwapChain->Release(); g_pSwapChain = nullptr; }
+    if (g_pd3dDevice) { g_pd3dDevice->Release(); g_pd3dDevice = nullptr; }
+}
+
+void CreateRenderTarget()
+{
+    ID3D10Texture2D* pBackBuffer;
+    g_pSwapChain->GetBuffer(0, IID_PPV_ARGS(&pBackBuffer));
+    g_pd3dDevice->CreateRenderTargetView(pBackBuffer, nullptr, &g_mainRenderTargetView);
+    pBackBuffer->Release();
+}
+
+void CleanupRenderTarget()
+{
+    if (g_mainRenderTargetView) { g_mainRenderTargetView->Release(); g_mainRenderTargetView = nullptr; }
 }
 
 // Forward declare message handler from imgui_impl_win32.cpp
@@ -200,25 +252,24 @@ extern IMGUI_IMPL_API LRESULT ImGui_ImplWin32_WndProcHandler(HWND hWnd, UINT msg
 // Generally you may always pass all inputs to dear imgui, and hide them from your application based on those two flags.
 LRESULT WINAPI WndProc(HWND hWnd, UINT msg, WPARAM wParam, LPARAM lParam)
 {
-  if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
-    return true;
+    if (ImGui_ImplWin32_WndProcHandler(hWnd, msg, wParam, lParam))
+        return true;
 
-  switch (msg)
-  {
-  case WM_SIZE:
-    if (wParam != SIZE_MINIMIZED)
+    switch (msg)
     {
-      g_Width = LOWORD(lParam);
-      g_Height = HIWORD(lParam);
+    case WM_SIZE:
+        if (wParam == SIZE_MINIMIZED)
+            return 0;
+        g_ResizeWidth = (UINT)LOWORD(lParam); // Queue resize
+        g_ResizeHeight = (UINT)HIWORD(lParam);
+        return 0;
+    case WM_SYSCOMMAND:
+        if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
+            return 0;
+        break;
+    case WM_DESTROY:
+        ::PostQuitMessage(0);
+        return 0;
     }
-    return 0;
-  case WM_SYSCOMMAND:
-    if ((wParam & 0xfff0) == SC_KEYMENU) // Disable ALT application menu
-      return 0;
-    break;
-  case WM_DESTROY:
-    ::PostQuitMessage(0);
-    return 0;
-  }
-  return ::DefWindowProcW(hWnd, msg, wParam, lParam);
+    return ::DefWindowProcW(hWnd, msg, wParam, lParam);
 }
