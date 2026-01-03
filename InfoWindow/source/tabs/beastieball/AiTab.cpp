@@ -9,12 +9,12 @@ using namespace YYTK;
 
 #include "AiTab.h"
 
-RValue InstanceGet(RValue instance, const char *name)
+RValue InstanceGet(const RValue &instance, const char *name)
 {
   return yytk->CallBuiltin("variable_instance_get", {instance, RValue(name)});
 }
 
-void InstanceSet(RValue instance, const char *name, RValue value)
+void InstanceSet(const RValue &instance, const char *name, const RValue &value)
 {
   yytk->CallBuiltin("variable_instance_set", {instance, RValue(name), value});
 }
@@ -30,7 +30,7 @@ void Undo()
   }
 }
 
-int FindAi(RValue game_active)
+int FindAi(const RValue &game_active)
 {
   if (!game_active.ToBoolean())
     return -2;
@@ -60,7 +60,7 @@ int FindAi(RValue game_active)
 
 int player_team = -1;
 
-void ActuallyMakeAi(RValue &game_active, int &found_ai)
+void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
 {
   Undo();
   yytk->CallGameScript("gml_Script_board_snapshot", {});
@@ -121,7 +121,7 @@ AiBranch aitree = {};
 double max_eval = 0;
 int sim_total = 0;
 
-AiBranch AddBranch(RValue branch)
+AiBranch AddBranch(const RValue &branch)
 {
   AiBranch branch_rep;
   branch_rep.text = branch["_debug_str"].ToString();
@@ -266,12 +266,12 @@ bool draw_notpossible = false;
 bool draw_intermediary = false;
 double winning_eval = 0;
 
-bool shouldBranchShow(std::string text)
+bool shouldBranchShow(const std::string &text)
 {
   return text.find("clicks on") == -1 && !text.starts_with("select");
 }
 
-void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> path)
+void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> &path)
 {
   if (!draw_all && branch.text == "" && branch.eval == -1)
     return;
@@ -340,9 +340,10 @@ void DrawAiTree()
   }
   winning_eval = aitree.eval + aitree.erratic;
   ImGui::BeginChild("aitree", ImVec2(0, 0), ImGuiChildFlags_Borders);
+  std::vector<int32_t> path = {0};
   for (int i = 0; i < root_children; i++)
   {
-    std::vector<int32_t> path = {i};
+    path[0] = i;
     DrawBranch(aitree.children[i], i, path);
   }
   ImGui::EndChild();
