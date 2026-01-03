@@ -406,12 +406,10 @@ bool auto_create_ai = true;
 // MARK: Tab Stuff
 void AiTab(bool *open)
 {
-  if (!open)
-    return;
   replay_saved_tree = false;
   if (auto_create_ai)
     AutoMakeAi();
-  if (!ImGui::Begin("AI Info", open))
+  if (!ImGui::Begin("AI Info", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
     return;

@@ -330,7 +330,7 @@ std::string GetObjectName(int i, RValue &parent)
 
 void ObjectTab(bool *open)
 {
-  if (!ImGui::Begin("Object Viewer", open, ImGuiWindowFlags_HorizontalScrollbar))
+  if (!ImGui::Begin("Object Viewer", open, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
     return;

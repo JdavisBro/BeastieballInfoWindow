@@ -206,8 +206,6 @@ void CheatsHooks()
 
 void CheatsTab(bool *open)
 {
-  if (!open)
-    return;
   if (on_level_load_go)
   {
     TeleportToPosition(on_level_load_go_to);
@@ -234,7 +232,7 @@ void CheatsTab(bool *open)
     yytk->CallBuiltin("variable_instance_set", {player, RValue("z_last"), player_z});
   }
 
-  if (!ImGui::Begin("Cheats", open))
+  if (!ImGui::Begin("Cheats", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
     return;

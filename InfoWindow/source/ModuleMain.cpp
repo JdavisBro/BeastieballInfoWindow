@@ -48,11 +48,6 @@ void DoHooks()
 	hooks_done = true;
 }
 
-inline void SetNextDock(ImGuiID dockspace)
-{
-	ImGui::SetNextWindowDockID(dockspace, ImGuiCond_FirstUseEver);
-}
-
 void DemoWindow(bool *open) {
 	ImGui::ShowDemoWindow(open);
 }
@@ -130,7 +125,7 @@ void CodeCallback(FWCodeEvent &Event)
 			TabInfo &tab = tabs[i];
 			if (!tab.open || (!is_beastieball && tab.beastieball))
 				continue;
-			SetNextDock(dockspace);
+			ImGui::SetNextWindowDockID(dockspace, ImGuiCond_FirstUseEver);
 			tab.draw(&tab.open);
 		}
 		ImguiFrameEnd();

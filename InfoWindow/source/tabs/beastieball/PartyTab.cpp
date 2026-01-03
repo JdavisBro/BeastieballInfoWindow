@@ -452,7 +452,7 @@ bool DrawParty()
 
 void PartyTab(bool *open)
 {
-  if (!ImGui::Begin("Party", open))
+  if (!ImGui::Begin("Party", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
     return;
