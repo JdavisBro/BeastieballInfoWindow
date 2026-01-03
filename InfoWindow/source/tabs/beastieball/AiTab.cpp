@@ -404,12 +404,14 @@ void SimulateTree()
 bool auto_create_ai = true;
 
 // MARK: Tab Stuff
-void AiTab()
+void AiTab(bool *open)
 {
+  if (!open)
+    return;
   replay_saved_tree = false;
   if (auto_create_ai)
     AutoMakeAi();
-  if (!ImGui::Begin("AI Info"))
+  if (!ImGui::Begin("AI Info", open))
   {
     ImGui::End();
     return;

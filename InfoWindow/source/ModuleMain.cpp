@@ -4,6 +4,7 @@
 #include <vector>
 
 #include "imgui.h"
+#include "imgui_internal.h"
 
 using namespace Aurie;
 using namespace YYTK;
@@ -52,6 +53,46 @@ inline void SetNextDock(ImGuiID dockspace)
 	ImGui::SetNextWindowDockID(dockspace, ImGuiCond_FirstUseEver);
 }
 
+void DemoWindow(bool *open) {
+	ImGui::ShowDemoWindow(open);
+}
+
+struct TabInfo {
+	const char* name;
+	bool open;
+	bool beastieball;
+	std::function<void(bool *)> draw;
+};
+
+TabInfo tabs[] = {
+	{"ImGui Demo", false, false, DemoWindow},
+	{"Object Tab", true, false, ObjectTab},
+	{"AI Tab", true, true, AiTab},
+	{"Party Tab", true, true, PartyTab},
+	{"Cheats Tab", true, true, CheatsTab},
+};
+const int tab_count = sizeof(tabs) / sizeof(TabInfo);
+
+void PopupMenu(ImGuiID dockspace)
+{
+	bool showPopup = false;
+	ImGuiDockNode* node = (ImGuiDockNode*)GImGui->DockContext.Nodes.GetVoidPtr(dockspace);
+	if (ImGui::DockNodeBeginAmendTabBar(node)) {
+		showPopup = ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing);
+		ImGui::DockNodeEndAmendTabBar();
+	}
+	if (showPopup)
+		ImGui::OpenPopup("AddMenu");
+	if (ImGui::BeginPopup("AddMenu")) {
+		for (int i = 0; i < tab_count; i++) {
+			TabInfo &tab = tabs[i];
+			if (!is_beastieball && tab.beastieball)
+				continue;
+			ImGui::Checkbox(tab.name, &tab.open);
+		}
+		ImGui::EndPopup();
+	}
+}
 
 void CodeCallback(FWCodeEvent &Event)
 {
@@ -84,18 +125,14 @@ void CodeCallback(FWCodeEvent &Event)
 	ImGuiID dockspace;
 	if (!ImguiFrameSetup(dockspace))
 	{
-		SetNextDock(dockspace);
-		ObjectTab();
-		if (is_beastieball)
-		{
+		PopupMenu(dockspace);
+		for (int i = 0; i < tab_count; i++) {
+			TabInfo &tab = tabs[i];
+			if (!tab.open || (!is_beastieball && tab.beastieball))
+				continue;
 			SetNextDock(dockspace);
-			AiTab();
-			SetNextDock(dockspace);
-			PartyTab();
-			SetNextDock(dockspace);
-			CheatsTab();
+			tab.draw(&tab.open);
 		}
-
 		ImguiFrameEnd();
 	}
 
