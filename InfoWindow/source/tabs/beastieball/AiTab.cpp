@@ -43,11 +43,15 @@ int FindAi(const RValue &game_active)
   for (int i = 0; i < 2; i += 1)
   {
     int64_t team_control = InstanceGet(game_active, "teams_data")[i]["control"].ToInt64();
+    // team is ai
     if (team_control == 1 || team_control == 2)
     {
-      // team is ai
+      if (found_ai >= i) {
+        // multiple AIs, do nothing.
+        found_ai = -1;
+        break;
+      }
       found_ai = i;
-      break;
     }
   }
   // ai not found or player turned.
