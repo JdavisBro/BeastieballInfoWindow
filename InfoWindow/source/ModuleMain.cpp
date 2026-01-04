@@ -89,6 +89,8 @@ void PopupMenu(ImGuiID dockspace)
 	}
 }
 
+bool has_drawn = false;
+
 void CodeCallback(FWCodeEvent &Event)
 {
 	auto [Self, Other, Code, ArgCount, Arg] = Event.Arguments();
@@ -96,9 +98,19 @@ void CodeCallback(FWCodeEvent &Event)
 	
 	std::string name = Code->GetName();
 
-	if (name != "gml_Object_objGame_Draw_0")
-		return;
+	if (is_beastieball) {
+		if (name != "gml_Object_objGame_Draw_0")
+			return;
+	} else {
+		if (name.ends_with("Draw_0")) { // draws first event after every Draw_0
+			has_drawn = false;
+			return;
+		} else if (has_drawn || name.find("_Other_") != -1) {
+			return;
+		}
+	}
 
+	has_drawn = true;
 	static bool window_exists = false;
 	if (!window_exists)
 	{
@@ -135,7 +147,8 @@ void CodeCallback(FWCodeEvent &Event)
 	if (is_beastieball)
 	{
 		RValue settings = yytk->CallBuiltin("variable_global_get", {RValue("SETTINGS")});
-		yytk->CallBuiltin("game_set_speed", {settings["framerate"], RValue(0)});
+		if (!settings.IsUndefined())
+			yytk->CallBuiltin("game_set_speed", {settings["framerate"], RValue(0)});
 	}
 }
 
