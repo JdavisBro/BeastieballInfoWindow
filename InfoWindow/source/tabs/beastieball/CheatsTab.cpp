@@ -204,7 +204,7 @@ void CheatsHooks()
   RequestHook("gml_Script_AddTo@", "DotobjClassGroup", "IW groupaddto", GroupAddTo, reinterpret_cast<PVOID *>(&groupAddToOriginal));
 }
 
-void CheatsTab()
+void CheatsTab(bool *open)
 {
   if (on_level_load_go)
   {
@@ -232,7 +232,7 @@ void CheatsTab()
     yytk->CallBuiltin("variable_instance_set", {player, RValue("z_last"), player_z});
   }
 
-  if (!ImGui::Begin("Cheats"))
+  if (!ImGui::Begin("Cheats", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
     return;

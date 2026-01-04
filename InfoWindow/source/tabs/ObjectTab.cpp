@@ -328,9 +328,9 @@ std::string GetObjectName(int i, RValue &parent)
   return std::format("{}: {}", i, yytk->CallBuiltin("object_get_name", {object}).ToString());
 }
 
-void ObjectTab()
+void ObjectTab(bool *open)
 {
-  if (!ImGui::Begin("Object Viewer", NULL, ImGuiWindowFlags_HorizontalScrollbar))
+  if (!ImGui::Begin("Object Viewer", open, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
     return;

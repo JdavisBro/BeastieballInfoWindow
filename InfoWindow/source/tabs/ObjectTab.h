@@ -1,3 +1,3 @@
 #include "../ModuleMain.h"
 
-void ObjectTab();
+void ObjectTab(bool *open);

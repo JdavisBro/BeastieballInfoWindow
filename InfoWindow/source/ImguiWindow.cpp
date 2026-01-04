@@ -94,6 +94,8 @@ int ImguiCreateWindow()
   return 0;
 }
 
+int ImguiShutdown();
+
 ImVec4 clear_color = ImVec4(0.45f, 0.55f, 0.60f, 1.00f);
 
 bool closed = false;
@@ -111,7 +113,10 @@ int ImguiFrameSetup(ImGuiID &dockspace)
           closed = true;
   }
   if (closed)
+  {
+    ImguiShutdown();
     return 1;
+  }
 
   // Handle window being minimized or screen locked
   if (g_SwapChainOccluded && g_pSwapChain->Present(0, DXGI_PRESENT_TEST) == DXGI_STATUS_OCCLUDED)
@@ -135,9 +140,6 @@ int ImguiFrameSetup(ImGuiID &dockspace)
   ImGui_ImplWin32_NewFrame();
   ImGui::NewFrame();
   dockspace = ImGui::DockSpaceOverViewport();
-
-  // 1. Show the big demo window (Most of the sample code is in ImGui::ShowDemoWindow()! You can browse its code to learn more about Dear ImGui!).
-  ImGui::ShowDemoWindow();
 
   return 0;
 }

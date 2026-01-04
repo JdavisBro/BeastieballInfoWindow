@@ -1,3 +1,3 @@
-void PartyTab();
+void PartyTab(bool *open);
 
 // void PartyHooks();
