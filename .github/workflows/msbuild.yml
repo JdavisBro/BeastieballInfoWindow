@@ -7,9 +7,9 @@ name: MSBuild
 
 on:
   push:
-    branches: ["main"]
-  pull_request:
-    branches: ["main"]
+    branches:
+      - main
+      - yytk_v4
 
 env:
   # Path to the solution file relative to the root of the project.
@@ -22,11 +22,16 @@ jobs:
   build:
     runs-on: windows-latest
 
+    strategy:
+      matrix:
+        branch: [main, yytk_v4]
+
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v3
         with:
           submodules: "true"
+          ref: ${{ matrix.branch }}
 
       - name: Add MSBuild to PATH
         uses: microsoft/setup-msbuild@v1.0.2
@@ -44,5 +49,26 @@ jobs:
       - name: Create release artifact
         uses: actions/upload-artifact@v4
         with:
-          name: InfoWindow Build (x64, Release)
-          path: .\x64\Release
+          name: BeastieballInfoWindow ${{ matrix.branch }}
+          path: .\x64\Release\BeastieballInfoWindow.dll
+  upload:
+    needs: [build]
+    runs-on: ubuntu-latest
+    steps:
+    - name: Download artifacts
+      uses: actions/download-artifact@v7
+    - run: |
+        gh release delete latest --cleanup-tag --yes
+      env:
+        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        GH_REPO: ${{ github.repository }}
+    - name: Release
+      uses: softprops/action-gh-release@v2
+      with:
+        tag_name: latest
+        name: Latest
+        fail_on_unmatched_files: true
+        files: |
+          */*
+        body: | 
+          Latest Builds
