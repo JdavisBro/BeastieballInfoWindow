@@ -75,6 +75,9 @@ void PopupMenu(ImGuiID dockspace)
 	if (ImGui::DockNodeBeginAmendTabBar(node)) {
 		showPopup = ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing);
 		ImGui::DockNodeEndAmendTabBar();
+	} else if (ImGui::BeginMainMenuBar()) {
+		showPopup = ImGui::MenuItem("Open Tabs", "Shift+A");
+		ImGui::EndMainMenuBar();
 	}
 	if (showPopup)
 		ImGui::OpenPopup("AddMenu");
