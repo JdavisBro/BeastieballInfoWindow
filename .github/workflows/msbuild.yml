@@ -50,8 +50,9 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: BeastieballInfoWindow ${{ matrix.branch }}
-          path: .\x64\Release\BeastieballInfoWindow.dll
+          path: .\x64\Release\BeastieballInfoWindow*.dll
   upload:
+    permissions: write-all
     needs: [build]
     runs-on: ubuntu-latest
     steps:
