@@ -148,7 +148,7 @@ void CodeCallback(FWCodeEvent &Event)
 	if (is_beastieball)
 	{
 		RValue settings = yytk->CallBuiltin("variable_global_get", {RValue("SETTINGS")});
-		if (!settings.IsUndefined())
+		if (settings.m_Kind != VALUE_UNDEFINED)
 			yytk->CallBuiltin("game_set_speed", {settings["framerate"], RValue(0)});
 	}
 }
