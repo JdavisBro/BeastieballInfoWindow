@@ -46,7 +46,8 @@ int FindAi(const RValue &game_active)
     // team is ai
     if (team_control == 1 || team_control == 2)
     {
-      if (found_ai >= i) {
+      if (found_ai >= i)
+      {
         // multiple AIs, do nothing.
         found_ai = -1;
         break;

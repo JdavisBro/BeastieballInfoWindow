@@ -48,12 +48,14 @@ void DoHooks()
 	hooks_done = true;
 }
 
-void DemoWindow(bool *open) {
+void DemoWindow(bool *open)
+{
 	ImGui::ShowDemoWindow(open);
 }
 
-struct TabInfo {
-	const char* name;
+struct TabInfo
+{
+	const char *name;
 	bool open;
 	bool beastieball;
 	std::function<void(bool *)> draw;
@@ -71,18 +73,23 @@ const int tab_count = sizeof(tabs) / sizeof(TabInfo);
 void PopupMenu(ImGuiID dockspace)
 {
 	bool showPopup = false;
-	ImGuiDockNode* node = (ImGuiDockNode*)GImGui->DockContext.Nodes.GetVoidPtr(dockspace);
-	if (ImGui::DockNodeBeginAmendTabBar(node)) {
+	ImGuiDockNode *node = (ImGuiDockNode *)GImGui->DockContext.Nodes.GetVoidPtr(dockspace);
+	if (ImGui::DockNodeBeginAmendTabBar(node))
+	{
 		showPopup = ImGui::TabItemButton("+", ImGuiTabItemFlags_Trailing);
 		ImGui::DockNodeEndAmendTabBar();
-	} else if (ImGui::BeginMainMenuBar()) {
+	}
+	else if (ImGui::BeginMainMenuBar())
+	{
 		showPopup = ImGui::MenuItem("Open Tabs", "Shift+A");
 		ImGui::EndMainMenuBar();
 	}
 	if (showPopup)
 		ImGui::OpenPopup("AddMenu");
-	if (ImGui::BeginPopup("AddMenu")) {
-		for (int i = 0; i < tab_count; i++) {
+	if (ImGui::BeginPopup("AddMenu"))
+	{
+		for (int i = 0; i < tab_count; i++)
+		{
 			TabInfo &tab = tabs[i];
 			if (!is_beastieball && tab.beastieball)
 				continue;
@@ -98,17 +105,23 @@ void CodeCallback(FWCodeEvent &Event)
 {
 	auto [Self, Other, Code, ArgCount, Arg] = Event.Arguments();
 	Event.Call(Self, Other, Code, ArgCount, Arg);
-	
+
 	std::string name = Code->GetName();
 
-	if (is_beastieball) {
+	if (is_beastieball)
+	{
 		if (name != "gml_Object_objGame_Draw_0")
 			return;
-	} else {
-		if (name.ends_with("Draw_0")) { // draws first event after every Draw_0
+	}
+	else
+	{
+		if (name.ends_with("Draw_0"))
+		{ // draws first event after every Draw_0
 			has_drawn = false;
 			return;
-		} else if (has_drawn || name.find("_Other_") != -1) {
+		}
+		else if (has_drawn || name.find("_Other_") != -1)
+		{
 			return;
 		}
 	}
@@ -136,7 +149,8 @@ void CodeCallback(FWCodeEvent &Event)
 	if (!ImguiFrameSetup(dockspace))
 	{
 		PopupMenu(dockspace);
-		for (int i = 0; i < tab_count; i++) {
+		for (int i = 0; i < tab_count; i++)
+		{
 			TabInfo &tab = tabs[i];
 			if (!tab.open || (!is_beastieball && tab.beastieball))
 				continue;
@@ -156,8 +170,8 @@ void CodeCallback(FWCodeEvent &Event)
 }
 
 EXPORTED AurieStatus ModuleInitialize(
-		IN AurieModule *Module,
-		IN const fs::path &ModulePath)
+	IN AurieModule *Module,
+	IN const fs::path &ModulePath)
 {
 	UNREFERENCED_PARAMETER(ModulePath);
 
@@ -169,10 +183,10 @@ EXPORTED AurieStatus ModuleInitialize(
 		return AURIE_MODULE_DEPENDENCY_NOT_RESOLVED;
 
 	last_status = yytk->CreateCallback(
-			Module,
-			EVENT_OBJECT_CALL,
-			CodeCallback,
-			0);
+		Module,
+		EVENT_OBJECT_CALL,
+		CodeCallback,
+		0);
 
 	if (!AurieSuccess(last_status))
 	{
