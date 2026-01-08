@@ -196,10 +196,29 @@ RValue &BuildBakedModels(CInstance *Self, CInstance *Other, RValue &ReturnValue,
   {
     std::vector<RValue> models = yytk->CallBuiltin("variable_instance_get", {Self, RValue("models_array")}).ToVector();
     for (RValue model : models)
+    {
       model["effect_layer"] = RValue(0);
     }
   }
   buildBakedModelsOriginal(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+
+bool do_pause_buffering = true;
+
+PFUNC_YYGMLScript buttonlistPressedOriginal = nullptr;
+RValue &ButtonlistPressed(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  if (do_pause_buffering && yytk->CallBuiltin("keyboard_check", {161}).ToBoolean())
+  {
+    RValue pause_buttons = yytk->CallBuiltin("variable_global_get", {"pause_buttons"});
+    if (pause_buttons.m_Object == Args[0]->m_Object)
+    {
+      ReturnValue = 1.0;
+      return ReturnValue;
+    }
+  }
+  buttonlistPressedOriginal(Self, Other, ReturnValue, numArgs, Args);
   return ReturnValue;
 }
 
@@ -208,6 +227,38 @@ void CheatsHooks()
   RequestHook("gml_Script_triangulate@", "class_shape", "IW shapeTriangulate", ShapeTriangulate, reinterpret_cast<PVOID *>(&shapeTriangulateOriginal));
   RequestHook("gml_Script_build_baked_models@", "class_level", "IW build_baked_models", BuildBakedModels, reinterpret_cast<PVOID *>(&buildBakedModelsOriginal));
   RequestHook("gml_Script_AddTo@", "DotobjClassGroup", "IW groupaddto", GroupAddTo, reinterpret_cast<PVOID *>(&groupAddToOriginal));
+  RequestHook(NULL, "gml_Script_buttonlist_pressed", "IW buttonlistpressed", ButtonlistPressed, reinterpret_cast<PVOID *>(&buttonlistPressedOriginal));
+}
+
+const char *player_vars[] = {
+    "x",
+    "y",
+    "z",
+    "hSpeed",
+    "vSpeed",
+    "z_speed",
+    "GROUNDED",
+    "jump_holding",
+};
+const int player_vars_count = sizeof(player_vars) / sizeof(const char *);
+
+void DisplayPlayerVars(RValue &player)
+{
+  ImGui::BeginTable("PlayerVarTable", player_vars_count, ImGuiTableFlags_Borders);
+  for (int i = 0; i < player_vars_count; i++)
+  {
+    ImGui::TableSetupColumn(player_vars[i]);
+  }
+  ImGui::TableHeadersRow();
+  ImGui::TableNextRow();
+  for (int i = 0; i < player_vars_count; i++)
+  {
+    ImGui::TableNextColumn();
+    RValue var = yytk->CallBuiltin("variable_instance_get", {player, player_vars[i]});
+    bool is_bool = var.m_Kind == VALUE_BOOL;
+    ImGui::Text(is_bool ? var.ToBoolean() ? "true" : "false" : var.ToString().c_str());
+  }
+  ImGui::EndTable();
 }
 
 void CheatsTab(bool *open)
@@ -254,6 +305,7 @@ void CheatsTab(bool *open)
 
   ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
   ImGui::Checkbox("Camera Always Follow Player", &camera_always_follow_player);
+  ImGui::Checkbox("Pause Buffer when RShift held.", &do_pause_buffering);
 
   if (ImGui::Checkbox("View Collision Only", &view_collision))
     ToggleCollision(game);
@@ -264,6 +316,13 @@ void CheatsTab(bool *open)
   if (ImGui::Button("Teleport to Map Center"))
     TeleportToMapWorldPosition(game, "world_x", "world_y");
   ImGui::Checkbox("Teleport to mouse on Middle Click", &teleport_on_middle_click);
+
+  ImGui::Text("Player Variables");
+  if (player.ToBoolean())
+  {
+    DisplayPlayerVars(player);
+  }
+
   ImGui::Text("Save Files:");
   ImGui::BeginChild("saves", ImVec2(0, 0), ImGuiChildFlags_Borders);
   int slot = yytk->CallBuiltin("variable_global_exists", {"SAVE_SLOT"}) ? yytk->CallBuiltin("variable_global_get", {"SAVE_SLOT"}).ToInt32() : 0;
