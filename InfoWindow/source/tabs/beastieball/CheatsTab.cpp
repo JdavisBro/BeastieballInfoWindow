@@ -265,7 +265,7 @@ bool debug_shortcuts = true;
 
 void DoDebugChildren(RValue &thing)
 {
-  if (!thing.IsStruct())
+  if (thing.m_Kind != VALUE_OBJECT)
     return; // sometimes they are numbers
   if (yytk->CallBuiltin("variable_instance_exists", {thing, "action"}).ToBoolean())
   {
@@ -290,7 +290,7 @@ void DoDebugChildren(RValue &thing)
   else
   {
     RValue rv_type = thing["type"];
-    int type = rv_type.IsStruct() ? 0 : rv_type.ToInt32();
+    int type = rv_type.m_Kind == VALUE_OBJECT ? 0 : rv_type.ToInt32();
     if (type != 1 && type != 2)
     {
       // is category
