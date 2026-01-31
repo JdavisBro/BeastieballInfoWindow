@@ -261,6 +261,56 @@ void DisplayPlayerVars(RValue &player)
   ImGui::EndTable();
 }
 
+bool debug_shortcuts = true;
+
+void DoDebugChildren(RValue &thing)
+{
+  if (!thing.IsStruct())
+    return; // sometimes they are numbers
+  if (yytk->CallBuiltin("variable_instance_exists", {thing, "action"}).ToBoolean())
+  {
+    // is button
+    bool pressed = false;
+    std::vector<RValue> keys = thing["keys"].ToVector();
+    for (RValue &key : keys)
+    {
+      if (yytk->CallBuiltin("keyboard_check_pressed", {key}).ToBoolean())
+      {
+        pressed = true;
+      }
+      else if (!yytk->CallBuiltin("keyboard_check", {key}).ToBoolean())
+      {
+        pressed = false;
+        break;
+      }
+    }
+    if (pressed)
+      yytk->CallBuiltin("method_call", {thing["action"]});
+  }
+  else
+  {
+    RValue rv_type = thing["type"];
+    int type = rv_type.IsStruct() ? 0 : rv_type.ToInt32();
+    if (type != 1 && type != 2)
+    {
+      // is category
+      std::vector<RValue> children = thing["buttons"].ToVector();
+      for (RValue &child : children)
+        DoDebugChildren(child);
+    }
+  }
+}
+
+void DoDebugShortcuts(RValue &game)
+{
+  if (debug_shortcuts && !yytk->CallBuiltin("instance_exists", {yytk->CallBuiltin("asset_get_index", {"objInit"})}).ToBoolean())
+  {
+    std::vector<RValue> stuff = yytk->CallBuiltin("variable_instance_get", {game, "debug_console_stuff"}).ToVector();
+    for (RValue &thing : stuff)
+      DoDebugChildren(thing);
+  }
+}
+
 void CheatsTab(bool *open)
 {
   if (on_level_load_go)
@@ -271,6 +321,7 @@ void CheatsTab(bool *open)
   RValue game = GetObjectInstance("objGame");
   if (teleport_on_middle_click && yytk->CallBuiltin("mouse_check_button_pressed", {3}))
     TeleportToMapWorldPosition(game, "mouse_world_x", "mouse_world_y", 380.0);
+  DoDebugShortcuts(game);
 
   bool debug_menu = yytk->CallBuiltin("variable_instance_get", {game, "debug_console"}).ToBoolean();
   if (yytk->CallBuiltin("keyboard_check_pressed", {192}).ToBoolean())
@@ -300,6 +351,7 @@ void CheatsTab(bool *open)
 
   if (ImGui::Checkbox("Debug Menu", &debug_menu))
     yytk->CallBuiltin("variable_instance_set", {game, "debug_console", debug_menu});
+  ImGui::Checkbox("Do Debug Menu Shortcuts", &debug_shortcuts);
   ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
   ImGui::Checkbox("Camera Always Follow Player", &camera_always_follow_player);
   ImGui::Checkbox("Pause Buffer when RShift held.", &do_pause_buffering);
