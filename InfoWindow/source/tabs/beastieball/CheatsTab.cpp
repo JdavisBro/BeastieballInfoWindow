@@ -298,11 +298,8 @@ void CheatsTab(bool *open)
     return;
   }
 
-  bool debug_menu_new = debug_menu;
-  ImGui::Checkbox("Debug Menu", &debug_menu_new);
-  if (debug_menu != debug_menu_new)
-    yytk->CallBuiltin("variable_instance_set", {game, "debug_console", debug_menu_new});
-
+  if (ImGui::Checkbox("Debug Menu", &debug_menu))
+    yytk->CallBuiltin("variable_instance_set", {game, "debug_console", debug_menu});
   ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
   ImGui::Checkbox("Camera Always Follow Player", &camera_always_follow_player);
   ImGui::Checkbox("Pause Buffer when RShift held.", &do_pause_buffering);
