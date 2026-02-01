@@ -13,6 +13,7 @@ using namespace YYTK;
 #include "ImguiWindow.h"
 #include "tabs/ObjectTab.h"
 #include "tabs/beastieball/AiTab.h"
+#include "tabs/beastieball/MatchTab.h"
 #include "tabs/beastieball/PartyTab.h"
 #include "tabs/beastieball/CheatsTab.h"
 
@@ -65,6 +66,7 @@ TabInfo tabs[] = {
 	{"ImGui Demo", false, false, DemoWindow},
 	{"Object Tab", true, false, ObjectTab},
 	{"AI Tab", true, true, AiTab},
+	{"Match Tab", true, true, MatchTab},
 	{"Party Tab", true, true, PartyTab},
 	{"Cheats Tab", true, true, CheatsTab},
 };
