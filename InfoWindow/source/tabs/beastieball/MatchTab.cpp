@@ -10,6 +10,9 @@ using namespace YYTK;
 #include "MatchTab.h"
 
 #include "AiTab.h"
+
+namespace MatchTab {
+
 struct GameplayState
 {
   std::string name = "";
@@ -42,7 +45,7 @@ bool IsExcludedName(std::string &name)
 
 GameplayState SaveState(RValue &game)
 {
-  Undo(game);
+  AiTab::Undo(game);
   GameplayState state;
   state.name = std::format("Turn {:03d}", yytk->CallBuiltin("variable_instance_get", {game, "round_count"}).ToInt32());
   std::vector<RValue> names = yytk->CallBuiltin("variable_instance_get_names", {game}).ToVector();
@@ -78,7 +81,7 @@ bool auto_create_ai_after_load = true;
 
 void LoadState(RValue &game, GameplayState &state)
 {
-  Undo(game);
+  AiTab::Undo(game);
   for (auto data : state.normal_values)
   {
     yytk->CallBuiltin("variable_instance_set", {game, RValue(data.first), data.second});
@@ -91,7 +94,7 @@ void LoadState(RValue &game, GameplayState &state)
   yytk->CallBuiltin("variable_instance_set", {game, "ai_choicegraph", RValue()});
   yytk->CallBuiltin("variable_instance_set", {game, "ai_selecting", -1});
   if (auto_create_ai_after_load)
-    MakeAi(); // from AiTab
+    AiTab::MakeAi(); // from AiTab
 }
 
 int selected = 0;
@@ -128,7 +131,7 @@ void DoGame(RValue &game, bool can_save)
   for (auto pair : states)
     sorted_states.push_back(pair.first);
   std::sort(sorted_states.begin(), sorted_states.end(), [](int a, int b)
-            { return states[a].name < states[b].name; });
+    { return states[a].name < states[b].name; });
   for (int state_i : sorted_states)
   {
     if (ImGui::Selectable(std::format("{}###Index{}", states[state_i].name, state_i).c_str(), selected == state_i))
@@ -170,4 +173,6 @@ void MatchTab(bool *open)
     DoGame(game, can_save);
 
   ImGui::End();
+}
+
 }
