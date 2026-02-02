@@ -9,6 +9,7 @@ using namespace YYTK;
 
 #include "MatchTab.h"
 
+#include "AiTab.h"
 struct GameplayState
 {
   std::string name = "";
@@ -26,7 +27,8 @@ const char *excluded_names[] = {
     "network_log", "parent_struct",
     "phase_titles", "quake_models",
     "reverse_fx", "rhythm_fx",
-    "shockwave_fx", "trap_fx"};
+    "shockwave_fx", "trap_fx",
+    "ai_choicegraph", "ai_selecting"};
 
 bool IsExcludedName(std::string &name)
 {
@@ -36,16 +38,6 @@ bool IsExcludedName(std::string &name)
       return true;
   }
   return false;
-}
-
-void Undo(RValue &game)
-{
-  RValue stack = yytk->CallBuiltin("variable_instance_get", {game, "board_snapshots"});
-  while (!yytk->CallBuiltin("ds_stack_empty", {stack}))
-  {
-    RValue board_snapshot = yytk->CallBuiltin("ds_stack_pop", {stack});
-    yytk->CallGameScript("gml_Script_board_snapshot_load", {board_snapshot});
-  }
 }
 
 GameplayState SaveState(RValue &game)
@@ -82,6 +74,8 @@ GameplayState SaveState(RValue &game)
   return state;
 }
 
+bool auto_create_ai_after_load = true;
+
 void LoadState(RValue &game, GameplayState &state)
 {
   Undo(game);
@@ -94,10 +88,21 @@ void LoadState(RValue &game, GameplayState &state)
     RValue value = yytk->CallGameScript("gml_Script_ElephantImportString", {data.second});
     yytk->CallBuiltin("variable_instance_set", {game, RValue(data.first), value});
   }
+  yytk->CallBuiltin("variable_instance_set", {game, "ai_choicegraph", RValue()});
+  yytk->CallBuiltin("variable_instance_set", {game, "ai_selecting", -1});
+  if (auto_create_ai_after_load)
+    MakeAi(); // from AiTab
 }
 
 int selected = 0;
 bool auto_save_enabled = true;
+
+void OtherSettings()
+{
+  ImGui::Checkbox("Auto Save on New Rounds", &auto_save_enabled);
+  ImGui::SameLine();
+  ImGui::Checkbox("Create AI after load", &auto_create_ai_after_load);
+}
 
 void DoGame(RValue &game, bool can_save)
 {
@@ -115,7 +120,7 @@ void DoGame(RValue &game, bool can_save)
   ImGui::SameLine();
   if (ImGui::Button("Delete"))
     states.erase(selected);
-  ImGui::Checkbox("Auto Save on New Rounds", &auto_save_enabled);
+  OtherSettings();
   if (states.contains(selected))
     ImGui::InputText("Name", states.contains(selected) ? &states[selected].name : nullptr);
   ImGui::BeginChild("states", ImVec2(0, 0), ImGuiChildFlags_Borders);
@@ -158,7 +163,7 @@ void MatchTab(bool *open)
   if (!game.ToBoolean())
   {
     ImGui::Text("No Active Match");
-    ImGui::Checkbox("Auto Save on New Rounds", &auto_save_enabled);
+    OtherSettings();
     states.clear();
   }
   else

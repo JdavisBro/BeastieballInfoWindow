@@ -19,9 +19,8 @@ void InstanceSet(const RValue &instance, const char *name, const RValue &value)
   yytk->CallBuiltin("variable_instance_set", {instance, RValue(name), value});
 }
 
-void Undo()
+void Undo(const RValue &game_active)
 {
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
   RValue stack = InstanceGet(game_active, "board_snapshots");
   while (!yytk->CallBuiltin("ds_stack_empty", {stack}))
   {
@@ -67,7 +66,7 @@ int player_team = -1;
 
 void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
 {
-  Undo();
+  Undo(game_active);
   yytk->CallGameScript("gml_Script_board_snapshot", {});
   InstanceSet(game_active, "ai_selecting", RValue(found_ai));
   RValue aitreeElephant = yytk->CallBuiltin("json_parse", {"{\"_\": \"class_aitree\"}"});
