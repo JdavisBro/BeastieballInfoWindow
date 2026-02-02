@@ -7,6 +7,8 @@ using namespace YYTK;
 #include "../../ModuleMain.h"
 #include "../../Hooks.h"
 
+#include <numbers>
+
 #include "CheatsTab.h"
 
 namespace CheatsTab {
@@ -313,6 +315,38 @@ void DoDebugShortcuts(RValue &game)
   }
 }
 
+const int CYLINDER_SEGMENTS = 12;
+const double CYLINDER_DIST = 2 / (double)CYLINDER_SEGMENTS;
+
+const double CYLINDER_COLOR = 0xFFFFFF;
+const double CYLINDER_ALPHA = 0.9;
+
+bool draw_player_collision = false;
+
+void DrawPlayerCollision(RValue &player)
+{
+  yytk->CallBuiltin("draw_set_color", {CYLINDER_COLOR});
+  yytk->CallBuiltin("draw_set_alpha", {CYLINDER_ALPHA});
+  double x = yytk->CallBuiltin("variable_instance_get", {player, "x"}).ToDouble();
+  double y = yytk->CallBuiltin("variable_instance_get", {player, "y"}).ToDouble();
+  double z = yytk->CallBuiltin("variable_instance_get", {player, "z"}).ToDouble();
+  double height = yytk->CallBuiltin("variable_instance_get", {player, "height"}).ToDouble();
+  double radius = yytk->CallBuiltin("variable_instance_get", {player, "collider_radius"}).ToDouble();
+  bool grounded = yytk->CallBuiltin("variable_instance_get", {player, "GROUNDED"}).ToBoolean();
+  double offset = yytk->CallBuiltin("variable_instance_get", {player, grounded ? "collider_z_offset" : "collider_z_offset_jump"}).ToDouble();
+  z = z + offset;
+  height = height - offset;
+  for (double step = 0.0; step < 2.0; step += CYLINDER_DIST)
+  {
+    double cx = x + sin(step * std::numbers::pi) * radius;
+    double cy = y + cos(step * std::numbers::pi) * radius;
+    double cx2 = x + sin((step + CYLINDER_DIST) * std::numbers::pi) * radius;
+    double cy2 = y + cos((step + CYLINDER_DIST) * std::numbers::pi) * radius;
+    yytk->CallGameScript("gml_Script_draw_plane_3d", {cx, cy, z, cx2, cy2, z, cx, cy, z + height, cx2, cy2, z + height});
+  }
+  yytk->CallBuiltin("draw_set_alpha", {1.0});
+}
+
 void CheatsTab(bool *open)
 {
   if (on_level_load_go)
@@ -330,6 +364,8 @@ void CheatsTab(bool *open)
     yytk->CallBuiltin("variable_instance_set", {game, "debug_console", !debug_menu});
 
   RValue player = GetObjectInstance("objPlayer");
+  if (draw_player_collision && player.ToBoolean())
+    DrawPlayerCollision(player);
   if (infinite_jumps)
   {
     if (yytk->CallBuiltin("keyboard_check_pressed", {RValue(32.0)}).ToBoolean())
@@ -360,6 +396,7 @@ void CheatsTab(bool *open)
 
   if (ImGui::Checkbox("View Collision Only", &view_collision))
     ToggleCollision(game);
+  ImGui::Checkbox("Draw Player Collision", &draw_player_collision);
 
   if (ImGui::Button("Reload Level"))
     ReloadLevel(game);
