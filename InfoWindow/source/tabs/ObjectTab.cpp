@@ -7,7 +7,10 @@ using namespace YYTK;
 #include "../ModuleMain.h"
 
 #include <format>
+
 #include "ObjectTab.h"
+
+namespace ObjectTab {
 
 enum StorageType : int32_t
 {
@@ -234,7 +237,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   for (int i = start_index; i < count; i++)
   {
     std::string name = use_names ? names[i].ToString() : name_func ? name_func(i, object)
-                                                                   : std::to_string(i);
+      : std::to_string(i);
     if (!search.empty() && name.find(search) == -1)
       continue;
     RValue key = use_names ? names[i] : RValue(name);
@@ -354,4 +357,6 @@ void ObjectTab(bool *open)
   }
 
   ImGui::End();
+}
+
 }

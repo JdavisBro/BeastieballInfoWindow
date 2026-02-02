@@ -9,6 +9,8 @@ using namespace YYTK;
 
 #include "AiTab.h"
 
+namespace AiTab {
+
 RValue InstanceGet(const RValue &instance, const char *name)
 {
   return yytk->CallBuiltin("variable_instance_get", {instance, RValue(name)});
@@ -425,4 +427,6 @@ void AiTab(bool *open)
   DrawAiTree();
 
   ImGui::End();
+}
+
 }

@@ -8,6 +8,8 @@ using namespace YYTK;
 
 #include "PartyTab.h"
 
+namespace PartyTab {
+
 struct RelationshipData
 {
   std::string otherPid;
@@ -58,7 +60,7 @@ void GetRelationships(std::map<std::string, RelationshipData> &relationships, st
     std::string pidA = relationship["pidA"].ToString();
     std::string pidB = relationship["pidB"].ToString();
     int pidMatch = pidA == pid ? 1 : pidB == pid ? 2
-                                                 : 0;
+      : 0;
     if (pidMatch)
     {
       bool is_a = pidMatch == 1;
@@ -335,7 +337,7 @@ void SelectedBeastie(RValue beastie)
   if (ImGui::Button("Set##LevelSet"))
   {
     selected_copy.level = selected_copy.level > 100 ? 100 : selected_copy.level < 1 ? 1
-                                                                                    : selected_copy.level;
+      : selected_copy.level;
     double growth = species["growth"].ToDouble();
     beastie["level"] = (int)floor(selected_copy.level);
     beastie["xp"] = (int)floor(pow(selected_copy.level, 3) * growth);
@@ -461,4 +463,6 @@ void PartyTab(bool *open)
     ImGui::Text("No Party.");
 
   ImGui::End();
+}
+
 }

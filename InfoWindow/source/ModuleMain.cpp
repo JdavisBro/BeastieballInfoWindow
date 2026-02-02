@@ -41,8 +41,8 @@ void DoHooks()
 	// hook requests
 	if (is_beastieball)
 	{
-		AiHooks();
-		CheatsHooks();
+		AiTab::AiHooks();
+		CheatsTab::CheatsHooks();
 	}
 	// make hooks
 	CreateHooks();
@@ -64,11 +64,11 @@ struct TabInfo
 
 TabInfo tabs[] = {
 	{"ImGui Demo", false, false, DemoWindow},
-	{"Object Tab", true, false, ObjectTab},
-	{"AI Tab", true, true, AiTab},
-	{"Match Tab", true, true, MatchTab},
-	{"Party Tab", true, true, PartyTab},
-	{"Cheats Tab", true, true, CheatsTab},
+	{"Object Tab", true, false, ObjectTab::ObjectTab},
+	{"AI Tab", true, true, AiTab::AiTab},
+	{"Match Tab", true, true, MatchTab::MatchTab},
+	{"Party Tab", true, true, PartyTab::PartyTab},
+	{"Cheats Tab", true, true, CheatsTab::CheatsTab},
 };
 const int tab_count = sizeof(tabs) / sizeof(TabInfo);
 

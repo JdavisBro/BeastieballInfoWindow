@@ -9,6 +9,8 @@ using namespace YYTK;
 
 #include "CheatsTab.h"
 
+namespace CheatsTab {
+
 struct Vec2
 {
   double x;
@@ -41,9 +43,9 @@ RValue FindLevel(double x, double y)
   for (RValue level : stumps)
   {
     if (
-        level["world_layer"].ToDouble() == 0 && !level["map_hidden"].ToBoolean() &&
-        level["world_x1"].ToDouble() <= x && level["world_x2"].ToDouble() >= x &&
-        level["world_y1"].ToDouble() <= y && level["world_y2"].ToDouble() >= y)
+      level["world_layer"].ToDouble() == 0 && !level["map_hidden"].ToBoolean() &&
+      level["world_x1"].ToDouble() <= x && level["world_x2"].ToDouble() >= x &&
+      level["world_y1"].ToDouble() <= y && level["world_y2"].ToDouble() >= y)
     {
       if (level["name"].ToString() != "ocean")
         return level;
@@ -395,4 +397,6 @@ void CheatsTab(bool *open)
   ImGui::EndChild();
 
   ImGui::End();
+}
+
 }
