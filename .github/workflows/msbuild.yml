@@ -10,6 +10,7 @@ on:
     branches:
       - main
       - yytk_v4
+  workflow_dispatch:
 
 env:
   # Path to the solution file relative to the root of the project.
@@ -56,20 +57,20 @@ jobs:
     needs: [build]
     runs-on: ubuntu-latest
     steps:
-    - name: Download artifacts
-      uses: actions/download-artifact@v7
-    - run: |
-        gh release delete latest --cleanup-tag --yes
-      env:
-        GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-        GH_REPO: ${{ github.repository }}
-    - name: Release
-      uses: softprops/action-gh-release@v2
-      with:
-        tag_name: latest
-        name: Latest
-        fail_on_unmatched_files: true
-        files: |
-          */*
-        body: | 
-          Latest Builds
+      - name: Download artifacts
+        uses: actions/download-artifact@v7
+      - run: |
+          gh release delete latest --cleanup-tag --yes
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: latest
+          name: Latest
+          fail_on_unmatched_files: true
+          files: |
+            */*
+          body: |
+            Latest Builds
