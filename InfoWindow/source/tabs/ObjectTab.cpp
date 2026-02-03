@@ -12,6 +12,26 @@ using namespace YYTK;
 
 namespace ObjectTab {
 
+
+struct BuiltinVarList {
+  const char *name;
+  std::vector<const char *> vars;
+  bool visible = false;
+};
+
+BuiltinVarList all_builtin_types[] = {
+  {"Common", {"visible", "x", "y"}, true},
+  {"General", {"id", "solid", "persistent", "depth", "layer", "alarm", "object_index"}},
+  {"Movement", {"direction", "friction", "gravity", "gravity_direction", "hspeed", "vspeed", "xstart", "ystart", "xprevious", "yprevious", "speed"}},
+  {"Sprite", {"sprite_index", "sprite_width", "sprite_height", "sprite_xoffset", "sprite_yoffset"}},
+  {"Image", {"image_alpha", "image_angle", "image_blend", "image_index", "image_number", "image_speed", "image_xscale", "image_yscale"}},
+  {"Mask", {"mask_index", "bbox_bottom", "bbox_left", "bbox_right", "bbox_top"}},
+  {"Path", {"path_index", "path_position", "path_positionprevious", "path_speed", "path_scale", "path_orientation", "path_endaction"}},
+  {"Timeline & Sequence", {"timeline_index", "timeline_running", "timeline_speed", "timeline_position", "timeline_loop", "in_sequence", "sequence_instance"}},
+  {"Physics", {"phy_active", "phy_angular_velocity", "phy_angular_damping", "phy_linear_velocity_x", "phy_linear_velocity_y", "phy_linear_damping", "phy_speed_x", "phy_speed_y", "phy_position_x", "phy_position_y", "phy_position_xprevious", "phy_position_yprevious", "phy_rotation", "phy_fixed_rotation", "phy_bullet"}}
+};
+const int all_builtin_count = 9;
+
 enum StorageType : int32_t
 {
   STORAGE_UNKNOWN = -1,
@@ -170,11 +190,22 @@ void EndEndPane()
 {
   options_drawn = true;
   ImGui::EndChild();
-  ImGui::Checkbox("Hide Functions", &hide_functions);
-  ImGui::SameLine();
-  ImGui::Checkbox("Hide __ vars", &hide_dunder);
-  ImGui::SameLine();
-  ImGui::Checkbox("Sort Keys", &sort_names);
+  if (ImGui::Button("Options"))
+    ImGui::OpenPopup("options");
+  if (ImGui::BeginPopup("options")) {
+    ImGui::Checkbox("Hide Functions", &hide_functions);
+    ImGui::SameLine();
+    ImGui::Checkbox("Hide __ vars", &hide_dunder);
+    ImGui::SameLine();
+    ImGui::Checkbox("Sort Keys", &sort_names);
+    for (int i = 0; i < all_builtin_count; i++) {
+      BuiltinVarList *list = &all_builtin_types[i];
+      ImGui::Checkbox(list->name, &list->visible);
+      if (i % 3 != 2)
+        ImGui::SameLine();
+    }
+    ImGui::EndPopup();
+  }
   ImGui::EndGroup();
   ImGui::EndChild();
   if (just_changed)
@@ -189,7 +220,7 @@ const char *storage_type_size_functions[] = {
     "ds_list_size",                  // STORAGE_DS_LIST
 };
 
-void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue &)> name_func, int count, int start_index, StorageType type)
+void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue &)> name_func, int count, int start_index, StorageType type, RValue &builtins_array)
 {
   while (pane_selections.size() <= pane_id)
     pane_selections.push_back(NONE_SELECTED);
@@ -212,9 +243,15 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   switch (type)
   {
   case STORAGE_STRUCT:
-  case STORAGE_INSTANCE:
     names = yytk->CallBuiltin("variable_instance_get_names", {object});
     break;
+  case STORAGE_INSTANCE: {
+    names = yytk->CallBuiltin("variable_instance_get_names", {object});
+    RValue names_length = yytk->CallBuiltin("array_length", {names});
+    RValue builtins_length = yytk->CallBuiltin("array_length", {builtins_array});
+    yytk->CallBuiltin("array_copy", {names, names_length, builtins_array, 0, builtins_length});
+    break;
+  }
   case STORAGE_DS_MAP:
     names = yytk->CallBuiltin("ds_map_keys_to_array", {object});
     break;
@@ -289,7 +326,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     if (new_type != STORAGE_UNKNOWN)
     {
       int count = yytk->CallBuiltin(storage_type_size_functions[new_type], {selected_value}).ToInt32();
-      MakePane(pane_id + 1, selected_value, nullptr, count, 0, new_type);
+      MakePane(pane_id + 1, selected_value, nullptr, count, 0, new_type, builtins_array);
     }
     else
     {
@@ -331,6 +368,24 @@ std::string GetObjectName(int i, RValue &parent)
   return std::format("{}: {}", i, yytk->CallBuiltin("object_get_name", {object}).ToString());
 }
 
+RValue MakeBuiltinList()
+{
+  RValue arr = yytk->CallBuiltin("array_create", {});
+  size_t count = 0;
+  for (int i = 0; i < all_builtin_count; i++) {
+    BuiltinVarList *list = &all_builtin_types[i];
+    if (list->visible) {
+      std::vector<RValue> args = {arr, count};
+      size_t var_count = list->vars.size();
+      for (size_t var_i = 0; var_i < var_count; var_i++)
+        args.push_back(list->vars[var_i]);
+      yytk->CallBuiltin("array_insert", args);
+      count += var_count;
+    }
+  }
+  return arr;
+}
+
 void ObjectTab(bool *open)
 {
   if (!ImGui::Begin("Object Viewer", open, ImGuiWindowFlags_HorizontalScrollbar | ImGuiWindowFlags_NoFocusOnAppearing))
@@ -345,8 +400,9 @@ void ObjectTab(bool *open)
   yytk->GetBuiltin("instance_count", nullptr, NULL_INDEX, instance_count_rvalue);
   int instance_count = instance_count_rvalue.ToInt32();
 
+  RValue builtins_array = MakeBuiltinList();
   RValue undef;
-  MakePane(0, undef, GetObjectName, instance_count, -1, STORAGE_UNKNOWN);
+  MakePane(0, undef, GetObjectName, instance_count, -1, STORAGE_UNKNOWN, builtins_array);
 
   if (!options_drawn)
   {
