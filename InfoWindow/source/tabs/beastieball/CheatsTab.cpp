@@ -347,6 +347,26 @@ void DrawPlayerCollision(RValue &player)
   yytk->CallBuiltin("draw_set_alpha", {1.0});
 }
 
+bool keep_freecam = false;
+int old_proj_mode = 0;
+
+void KeepFreecam(const RValue &player)
+{
+  RValue scenemanager = yytk->CallBuiltin("instance_find", {yytk->CallBuiltin("asset_get_index", {"objSceneManager"}), 0});
+  bool freecam = yytk->CallBuiltin("variable_global_get", {"FREE_CAM"}).ToBoolean();
+  int proj_mode = yytk->CallBuiltin("variable_instance_get", {scenemanager, "camera_projection_mode"}).ToInt32();
+  if (proj_mode != 3) {
+    old_proj_mode = proj_mode;
+  }
+  if (keep_freecam && !freecam) {
+    RValue shot = yytk->CallBuiltin("variable_instance_get", {scenemanager, "shot_overworld"});
+    shot["look_x"] = yytk->CallBuiltin("variable_instance_get", {player, "x"});
+    shot["look_y"] = yytk->CallBuiltin("variable_instance_get", {player, "y"});
+    shot["look_z"] = yytk->CallBuiltin("variable_instance_get", {player, "z"});
+  }
+  yytk->CallBuiltin("variable_instance_set", {scenemanager, "camera_projection_mode", (keep_freecam && !freecam) ? 3 : old_proj_mode});
+}
+
 void CheatsTab(bool *open)
 {
   if (on_level_load_go)
@@ -375,6 +395,9 @@ void CheatsTab(bool *open)
     }
   }
 
+  if (keep_freecam)
+    KeepFreecam(player);
+
   if (camera_always_follow_player)
   {
     RValue player_z = yytk->CallBuiltin("variable_instance_get", {player, RValue("z")});
@@ -392,6 +415,8 @@ void CheatsTab(bool *open)
   ImGui::Checkbox("Do Debug Menu Shortcuts", &debug_shortcuts);
   ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
   ImGui::Checkbox("Camera Always Follow Player", &camera_always_follow_player);
+  if (ImGui::Checkbox("Keep Freecam Shot", &keep_freecam) && !keep_freecam)
+    KeepFreecam(player);
   ImGui::Checkbox("Pause Buffer when RShift held.", &do_pause_buffering);
 
   if (ImGui::Checkbox("View Collision Only", &view_collision))
