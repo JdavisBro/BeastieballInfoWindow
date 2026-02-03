@@ -186,6 +186,51 @@ void BeginEndPane()
   ImGui::BeginChild("EDIT", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
 }
 
+std::string new_obj_name = "";
+double new_obj_x = 0;
+double new_obj_y = 0;
+double new_obj_z = 0;
+bool new_obj_set_z = false;
+double new_obj_depth = 0;
+
+void CreateObject() {
+  if (ImGui::Button("Create Object"))
+    ImGui::OpenPopup("createobj");
+  if (ImGui::BeginPopup("createobj")) {
+    ImGui::InputText("Object Name", &new_obj_name);
+    ImGui::InputDouble("X", &new_obj_x);
+    ImGui::SameLine();
+    ImGui::InputDouble("Y", &new_obj_y);
+    ImGui::SameLine();
+    ImGui::InputDouble("Z", &new_obj_z);
+    ImGui::SameLine();
+    ImGui::Checkbox("Set Z", &new_obj_set_z);
+    if (ImGui::Button("Copy Position from 1st Selected Instance")) {
+      int selection = pane_selections[0];
+      if (selection >= 0) {
+        RValue old_inst = yytk->CallBuiltin("instance_find", {-3, selection});
+        if (old_inst.ToBoolean()) {
+          new_obj_x = yytk->CallBuiltin("variable_instance_get", {old_inst, "x"}).ToDouble();
+          new_obj_y = yytk->CallBuiltin("variable_instance_get", {old_inst, "y"}).ToDouble();
+          new_obj_set_z = yytk->CallBuiltin("variable_instance_exists", {old_inst, "z"}).ToBoolean();
+          if (new_obj_set_z)
+            new_obj_z = yytk->CallBuiltin("variable_instance_get", {old_inst, "z"}).ToDouble();
+        }
+      }
+    }
+    ImGui::InputDouble("Depth", &new_obj_depth);
+    if (ImGui::Button("Create")) {
+      RValue obj = yytk->CallBuiltin("asset_get_index", {RValue(new_obj_name)});
+      if (obj.ToBoolean()) {
+        RValue inst = yytk->CallBuiltin("instance_create_depth", {new_obj_x, new_obj_y, new_obj_depth, obj});
+        if (new_obj_set_z)
+          yytk->CallBuiltin("variable_instance_set", {inst, "z", new_obj_z});
+      }
+    }
+    ImGui::EndPopup();
+  }
+}
+
 void EndEndPane()
 {
   options_drawn = true;
@@ -206,6 +251,8 @@ void EndEndPane()
     }
     ImGui::EndPopup();
   }
+  ImGui::SameLine();
+  CreateObject();
   ImGui::EndGroup();
   ImGui::EndChild();
   if (just_changed)
