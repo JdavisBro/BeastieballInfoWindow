@@ -155,7 +155,7 @@ bool options_drawn = false;
 
 bool hide_functions = true;
 bool hide_dunder = true;
-bool sort_names = false;
+bool sort_names = true;
 
 bool just_changed = false;
 
