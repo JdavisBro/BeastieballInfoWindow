@@ -139,7 +139,7 @@ RValue ValueSetter(RValue &name, RValue &value, bool just_changed)
   ImGui::SameLine();
   if (ImGui::Button("To String"))
     return_value = RValue(value.ToString());
-  if (!return_value.IsUndefined()) {
+  if (return_value.m_Kind != VALUE_UNDEFINED) {
     just_changed = true;
     value = return_value;
   }
@@ -378,7 +378,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   RValue selected_value;
   ImGui::InputText("Search", &pane.search);
   ImGui::SameLine();
-  if (object.IsUndefined())
+  if (object.m_Kind == VALUE_UNDEFINED)
     CreateObject();
   else
     NewValue(type, object);
