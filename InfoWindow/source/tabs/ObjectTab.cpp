@@ -127,9 +127,22 @@ bool setter_bool = false;
 double setter_double = 0;
 std::string setter_string = "";
 
-RValue ValueSetter(RValue name, RValue value, bool just_changed)
+RValue ValueSetter(RValue &name, RValue &value, bool just_changed)
 {
   ImGui::Text(std::format("{} = {}", name.ToString(), RValueToString(value)).c_str());
+  RValue return_value;
+  if (ImGui::Button("To Bool"))
+    return_value = RValue(value.ToBoolean());
+  ImGui::SameLine();
+  if (ImGui::Button("To Number"))
+    return_value = RValue(value.ToDouble());
+  ImGui::SameLine();
+  if (ImGui::Button("To String"))
+    return_value = RValue(value.ToString());
+  if (!return_value.IsUndefined()) {
+    just_changed = true;
+    value = return_value;
+  }
   switch (value.m_Kind)
   {
   case VALUE_BOOL:
@@ -163,7 +176,7 @@ RValue ValueSetter(RValue name, RValue value, bool just_changed)
       return RValue(setter_string);
     break;
   }
-  return RValue();
+  return return_value;
 }
 
 #define NONE_SELECTED -2
@@ -191,6 +204,32 @@ void BeginEndPane()
   ImGui::BeginChild("EDIT", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
 }
 
+void EndEndPane()
+{
+  options_drawn = true;
+  ImGui::EndChild();
+  if (ImGui::Button("Options"))
+    ImGui::OpenPopup("options");
+  if (ImGui::BeginPopup("options")) {
+    ImGui::Checkbox("Hide Functions", &hide_functions);
+    ImGui::SameLine();
+    ImGui::Checkbox("Hide __ vars", &hide_dunder);
+    ImGui::SameLine();
+    ImGui::Checkbox("Sort Keys", &sort_names);
+    for (int i = 0; i < all_builtin_count; i++) {
+      BuiltinVarList *list = &all_builtin_types[i];
+      ImGui::Checkbox(list->name, &list->visible);
+      if (i % 3 != 2)
+        ImGui::SameLine();
+    }
+    ImGui::EndPopup();
+  }
+  ImGui::EndGroup();
+  ImGui::EndChild();
+  if (just_changed)
+    ImGui::SetScrollHereX(1.0);
+}
+
 std::string new_obj_name = "";
 double new_obj_x = 0;
 double new_obj_y = 0;
@@ -199,7 +238,7 @@ bool new_obj_set_z = false;
 double new_obj_depth = 0;
 
 void CreateObject() {
-  if (ImGui::Button("Create Object"))
+  if (ImGui::Button("Create"))
     ImGui::OpenPopup("createobj");
   if (ImGui::BeginPopup("createobj")) {
     ImGui::InputText("Object Name", &new_obj_name);
@@ -226,7 +265,7 @@ void CreateObject() {
     ImGui::InputDouble("Depth", &new_obj_depth);
     if (ImGui::Button("Create")) {
       RValue obj = yytk->CallBuiltin("asset_get_index", {RValue(new_obj_name)});
-      if (obj.ToBoolean()) {
+      if (obj.ToBoolean() && yytk->CallBuiltin("object_exists", {obj}).ToBoolean()) {
         RValue inst = yytk->CallBuiltin("instance_create_depth", {new_obj_x, new_obj_y, new_obj_depth, obj});
         if (new_obj_set_z)
           yytk->CallBuiltin("variable_instance_set", {inst, "z", new_obj_z});
@@ -236,32 +275,59 @@ void CreateObject() {
   }
 }
 
-void EndEndPane()
+void SetValue(StorageType type, const RValue &object, const RValue &key, int index, const RValue &value)
 {
-  options_drawn = true;
-  ImGui::EndChild();
-  if (ImGui::Button("Options"))
-    ImGui::OpenPopup("options");
-  if (ImGui::BeginPopup("options")) {
-    ImGui::Checkbox("Hide Functions", &hide_functions);
-    ImGui::SameLine();
-    ImGui::Checkbox("Hide __ vars", &hide_dunder);
-    ImGui::SameLine();
-    ImGui::Checkbox("Sort Keys", &sort_names);
-    for (int i = 0; i < all_builtin_count; i++) {
-      BuiltinVarList *list = &all_builtin_types[i];
-      ImGui::Checkbox(list->name, &list->visible);
-      if (i % 3 != 2)
-        ImGui::SameLine();
+  switch (type)
+  {
+  case STORAGE_STRUCT:
+  case STORAGE_INSTANCE:
+    yytk->CallBuiltin("variable_instance_set", {object, key, value});
+    break;
+  case STORAGE_ARRAY:
+    if (index == -1)
+      yytk->CallBuiltin("array_push", {object, value});
+    else
+      yytk->CallBuiltin("array_set", {object, index, value});
+    break;
+  case STORAGE_DS_MAP:
+    yytk->CallBuiltin("ds_map_replace", {object, key, value});
+    break;
+  case STORAGE_DS_LIST:
+    if (index == -1)
+      yytk->CallBuiltin("ds_list_add", {object, value});
+    else
+      yytk->CallBuiltin("ds_list_set", {object, index, value});
+    break;
+  }
+}
+
+std::string new_var_name = "";
+
+void NewValue(StorageType type, RValue &object)
+{
+  if (ImGui::Button("New"))
+    ImGui::OpenPopup("newvar");
+  if (ImGui::BeginPopup("newvar")) {
+    bool name_check = false;
+    switch (type) {
+    case STORAGE_STRUCT:
+    case STORAGE_INSTANCE:
+    case STORAGE_DS_MAP:
+      ImGui::InputText("Name", &new_var_name);
+      name_check = true;
+    }
+    if (!name_check || (!new_var_name.empty() && !new_var_name.starts_with("@@"))) {
+      if (ImGui::Button("Create Bool"))
+        SetValue(type, object, RValue(new_var_name), -1, RValue(false));
+      ImGui::SameLine();
+      if (ImGui::Button("Create Number"))
+        SetValue(type, object, RValue(new_var_name), -1, RValue(0.0));
+      ImGui::SameLine();
+      if (ImGui::Button("Create String"))
+        SetValue(type, object, RValue(new_var_name), -1, RValue(""));
     }
     ImGui::EndPopup();
   }
-  ImGui::SameLine();
-  CreateObject();
-  ImGui::EndGroup();
-  ImGui::EndChild();
-  if (just_changed)
-    ImGui::SetScrollHereX(1.0);
 }
 
 const char *storage_type_size_functions[] = {
@@ -285,6 +351,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
 
   bool use_names = true;
   RValue names;
+  int builtins_length = yytk->CallBuiltin("array_length", {builtins_array}).ToInt32();
   switch (type)
   {
   case STORAGE_STRUCT:
@@ -293,7 +360,6 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   case STORAGE_INSTANCE: {
     names = yytk->CallBuiltin("variable_instance_get_names", {object});
     RValue names_length = yytk->CallBuiltin("array_length", {names});
-    RValue builtins_length = yytk->CallBuiltin("array_length", {builtins_array});
     yytk->CallBuiltin("array_copy", {names, names_length, builtins_array, 0, builtins_length});
     break;
   }
@@ -311,6 +377,11 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   RValue selected_key;
   RValue selected_value;
   ImGui::InputText("Search", &pane.search);
+  ImGui::SameLine();
+  if (object.IsUndefined())
+    CreateObject();
+  else
+    NewValue(type, object);
   ImGui::BeginChild("vars");
   for (int i = start_index; i < count; i++)
   {
@@ -354,6 +425,8 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     if (new_type != STORAGE_UNKNOWN)
     {
       int count = yytk->CallBuiltin(storage_type_size_functions[new_type], {selected_value}).ToInt32();
+      if (new_type == STORAGE_INSTANCE)
+        count += builtins_length;
       MakePane(pane_id + 1, selected_value, nullptr, count, 0, new_type, builtins_array);
     }
     else
@@ -361,24 +434,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
       BeginEndPane();
       RValue new_value = ValueSetter(selected_key, selected_value, just_changed);
       if (new_value.m_Kind != VALUE_UNDEFINED)
-      {
-        switch (type)
-        {
-        case STORAGE_STRUCT:
-        case STORAGE_INSTANCE:
-          yytk->CallBuiltin("variable_instance_set", {object, selected_key, new_value});
-          break;
-        case STORAGE_ARRAY:
-          object[pane.selection] = new_value;
-          break;
-        case STORAGE_DS_MAP:
-          yytk->CallBuiltin("ds_map_replace", {object, selected_key, new_value});
-          break;
-        case STORAGE_DS_LIST:
-          yytk->CallBuiltin("ds_list_set", {object, RValue(pane.selection), new_value});
-          break;
-        }
-      }
+        SetValue(type, object, selected_key, pane.selection, new_value);
       EndEndPane();
     }
   }
