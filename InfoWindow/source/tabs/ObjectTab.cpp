@@ -127,9 +127,22 @@ bool setter_bool = false;
 double setter_double = 0;
 std::string setter_string = "";
 
-RValue ValueSetter(RValue name, RValue value, bool just_changed)
+RValue ValueSetter(RValue &name, RValue &value, bool just_changed)
 {
   ImGui::Text(std::format("{} = {}", name.ToString(), RValueToString(value)).c_str());
+  RValue return_value;
+  if (ImGui::Button("To Bool"))
+    return_value = RValue(value.ToBoolean());
+  ImGui::SameLine();
+  if (ImGui::Button("To Number"))
+    return_value = RValue(value.ToDouble());
+  ImGui::SameLine();
+  if (ImGui::Button("To String"))
+    return_value = RValue(value.ToString());
+  if (!return_value.IsUndefined()) {
+    just_changed = true;
+    value = return_value;
+  }
   switch (value.m_Kind)
   {
   case VALUE_BOOL:
@@ -163,7 +176,7 @@ RValue ValueSetter(RValue name, RValue value, bool just_changed)
       return RValue(setter_string);
     break;
   }
-  return RValue();
+  return return_value;
 }
 
 #define NONE_SELECTED -2
