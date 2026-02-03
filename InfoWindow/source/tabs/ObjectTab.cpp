@@ -285,6 +285,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
 
   bool use_names = true;
   RValue names;
+  int builtins_length = yytk->CallBuiltin("array_length", {builtins_array}).ToInt32();
   switch (type)
   {
   case STORAGE_STRUCT:
@@ -293,7 +294,6 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   case STORAGE_INSTANCE: {
     names = yytk->CallBuiltin("variable_instance_get_names", {object});
     RValue names_length = yytk->CallBuiltin("array_length", {names});
-    RValue builtins_length = yytk->CallBuiltin("array_length", {builtins_array});
     yytk->CallBuiltin("array_copy", {names, names_length, builtins_array, 0, builtins_length});
     break;
   }
@@ -354,6 +354,8 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     if (new_type != STORAGE_UNKNOWN)
     {
       int count = yytk->CallBuiltin(storage_type_size_functions[new_type], {selected_value}).ToInt32();
+      if (new_type == STORAGE_INSTANCE)
+        count += builtins_length;
       MakePane(pane_id + 1, selected_value, nullptr, count, 0, new_type, builtins_array);
     }
     else
