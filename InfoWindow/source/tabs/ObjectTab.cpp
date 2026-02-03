@@ -309,9 +309,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     break;
   }
   if (use_names && sort_names)
-  {
     yytk->CallBuiltin("array_sort", {names, RValue(true)});
-  }
   RValue selected_key;
   RValue selected_value;
   std::string *search_ptr = pane_searches.data() + pane_id;
@@ -361,9 +359,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     }
   }
   if (count == 0)
-  {
     ImGui::Text("empty...");
-  }
   ImGui::EndChild();
   ImGui::EndChild();
   if (selected >= start_index && !selected_key.IsUndefined())
@@ -406,9 +402,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
 std::string GetObjectName(int i, RValue &parent)
 {
   if (i == -1)
-  {
     return "-: Global";
-  }
   RValue instance = yytk->CallBuiltin("instance_find", {RValue(-3),
                                                         RValue(i)});
   RValue object = yytk->CallBuiltin("variable_instance_get", {instance, RValue("object_index")});
