@@ -277,6 +277,64 @@ void EndEndPane()
     ImGui::SetScrollHereX(1.0);
 }
 
+void SetValue(StorageType type, const RValue &object, const RValue &key, int index, const RValue &value)
+{
+  switch (type)
+  {
+  case STORAGE_STRUCT:
+  case STORAGE_INSTANCE:
+    yytk->CallBuiltin("variable_instance_set", {object, key, value});
+    break;
+  case STORAGE_ARRAY:
+    if (index == -1)
+      yytk->CallBuiltin("array_push", {object, value});
+    else
+      yytk->CallBuiltin("array_set", {object, index, value});
+    break;
+  case STORAGE_DS_MAP:
+    yytk->CallBuiltin("ds_map_replace", {object, key, value});
+    break;
+  case STORAGE_DS_LIST:
+    if (index == -1)
+      yytk->CallBuiltin("ds_list_add", {object, value});
+    else
+      yytk->CallBuiltin("ds_list_set", {object, index, value});
+    break;
+  }
+}
+
+std::string new_var_name = "";
+
+void NewValue(StorageType type, RValue &object)
+{
+  if (object.IsUndefined())
+    return;
+  ImGui::SameLine();
+  if (ImGui::Button("New"))
+    ImGui::OpenPopup("newvar");
+  if (ImGui::BeginPopup("newvar")) {
+    bool name_check = false;
+    switch (type) {
+    case STORAGE_STRUCT:
+    case STORAGE_INSTANCE:
+    case STORAGE_DS_MAP:
+      ImGui::InputText("Name", &new_var_name);
+      name_check = true;
+    }
+    if (!name_check || (!new_var_name.empty() && !new_var_name.starts_with("@@"))) {
+      if (ImGui::Button("Create Bool"))
+        SetValue(type, object, RValue(new_var_name), -1, RValue(false));
+      ImGui::SameLine();
+      if (ImGui::Button("Create Number"))
+        SetValue(type, object, RValue(new_var_name), -1, RValue(0.0));
+      ImGui::SameLine();
+      if (ImGui::Button("Create String"))
+        SetValue(type, object, RValue(new_var_name), -1, RValue(""));
+    }
+    ImGui::EndPopup();
+  }
+}
+
 const char *storage_type_size_functions[] = {
     "variable_instance_names_count", // STORAGE_STRUCT
     "variable_instance_names_count", // STORAGE_INSTANCE
@@ -324,6 +382,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   RValue selected_key;
   RValue selected_value;
   ImGui::InputText("Search", &pane.search);
+  NewValue(type, object);
   ImGui::BeginChild("vars");
   for (int i = start_index; i < count; i++)
   {
@@ -376,24 +435,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
       BeginEndPane();
       RValue new_value = ValueSetter(selected_key, selected_value, just_changed);
       if (!new_value.IsUndefined())
-      {
-        switch (type)
-        {
-        case STORAGE_STRUCT:
-        case STORAGE_INSTANCE:
-          yytk->CallBuiltin("variable_instance_set", {object, selected_key, new_value});
-          break;
-        case STORAGE_ARRAY:
-          object[pane.selection] = new_value;
-          break;
-        case STORAGE_DS_MAP:
-          yytk->CallBuiltin("ds_map_replace", {object, selected_key, new_value});
-          break;
-        case STORAGE_DS_LIST:
-          yytk->CallBuiltin("ds_list_set", {object, RValue(pane.selection), new_value});
-          break;
-        }
-      }
+        SetValue(type, object, selected_key, pane.selection, new_value);
       EndEndPane();
     }
   }
