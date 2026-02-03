@@ -265,7 +265,7 @@ void CreateObject() {
     ImGui::InputDouble("Depth", &new_obj_depth);
     if (ImGui::Button("Create")) {
       RValue obj = yytk->CallBuiltin("asset_get_index", {RValue(new_obj_name)});
-      if (obj.ToBoolean()) {
+      if (obj.ToBoolean() && yytk->CallBuiltin("object_exists", {obj}).ToBoolean()) {
         RValue inst = yytk->CallBuiltin("instance_create_depth", {new_obj_x, new_obj_y, new_obj_depth, obj});
         if (new_obj_set_z)
           yytk->CallBuiltin("variable_instance_set", {inst, "z", new_obj_z});
