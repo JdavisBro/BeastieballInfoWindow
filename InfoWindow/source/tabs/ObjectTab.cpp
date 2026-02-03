@@ -167,9 +167,14 @@ RValue ValueSetter(RValue name, RValue value, bool just_changed)
 }
 
 #define NONE_SELECTED -2
-std::vector<int> pane_selections;
-std::vector<std::string> pane_names;
-std::vector<std::string> pane_searches;
+
+struct Pane {
+  int selection = NONE_SELECTED;
+  std::string name_selection = "";
+  std::string search = "";
+};
+
+std::vector<Pane> panes = {};
 
 bool options_drawn = false;
 
@@ -206,7 +211,7 @@ void CreateObject() {
     ImGui::SameLine();
     ImGui::Checkbox("Set Z", &new_obj_set_z);
     if (ImGui::Button("Copy Position from 1st Selected Instance")) {
-      int selection = pane_selections[0];
+      int selection = panes[0].selection;
       if (selection >= 0) {
         RValue old_inst = yytk->CallBuiltin("instance_find", {-3, selection});
         if (old_inst.ToBoolean()) {
@@ -269,19 +274,12 @@ const char *storage_type_size_functions[] = {
 
 void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue &)> name_func, int count, int start_index, StorageType type, RValue &builtins_array)
 {
-  while (pane_selections.size() <= pane_id)
-    pane_selections.push_back(NONE_SELECTED);
-  while (pane_names.size() <= pane_id)
-    pane_names.push_back("");
-  while (pane_searches.size() <= pane_id)
-    pane_searches.push_back("");
+  while (panes.size() <= pane_id)
+    panes.push_back(Pane());
+  Pane pane = panes[pane_id];
 
-  int selected = pane_selections[pane_id];
-  if (selected >= count || (selected < start_index))
-  {
-    pane_selections[pane_id] = NONE_SELECTED;
-    selected = NONE_SELECTED;
-  }
+  if (pane.selection >= count || (pane.selection < start_index))
+    pane.selection = NONE_SELECTED;
 
   ImGui::BeginChild(std::format("pane {}", pane_id).c_str(), ImVec2(350, 0), ImGuiChildFlags_Borders | ImGuiChildFlags_ResizeX | ImGuiWindowFlags_NoSavedSettings);
 
@@ -312,15 +310,13 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     yytk->CallBuiltin("array_sort", {names, RValue(true)});
   RValue selected_key;
   RValue selected_value;
-  std::string *search_ptr = pane_searches.data() + pane_id;
-  ImGui::InputText("Search", search_ptr);
-  std::string search = *search_ptr;
+  ImGui::InputText("Search", &pane.search);
   ImGui::BeginChild("vars");
   for (int i = start_index; i < count; i++)
   {
     std::string name = use_names ? names[i].ToString() : name_func ? name_func(i, object)
       : std::to_string(i);
-    if (!search.empty() && name.find(search) == -1)
+    if (!pane.search.empty() && name.find(pane.search) == -1)
       continue;
     RValue key = use_names ? names[i] : RValue(name);
     if (hide_dunder && name.starts_with("__"))
@@ -328,32 +324,21 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     RValue value = GetIndex(i, object, key, type);
     if (hide_functions && value.m_Kind == VALUE_OBJECT && yytk->CallBuiltin("is_method", {value}))
       continue;
-    bool is_selected = use_names ? name == pane_names[pane_id] : selected == i;
+    bool is_selected = use_names ? pane.name_selection == name : pane.selection == i;
     if (ImGui::Selectable(std::format("{}: {}###{}", name, RValueToString(value), i).c_str(), is_selected))
     {
-      if (pane_selections.size() > pane_id + 1)
+      if (panes.size() > pane_id + 1)
       {
-        pane_selections.resize(pane_id + 1);
-        pane_selections.shrink_to_fit();
+        panes.resize(pane_id + 1);
+        panes.shrink_to_fit();
       }
-      if (pane_names.size() > pane_id + 1)
-      {
-        pane_names.resize(pane_id + 1);
-        pane_names.shrink_to_fit();
-      }
-      if (pane_searches.size() > pane_id + 1)
-      {
-        pane_searches.resize(pane_id + 1);
-        pane_searches.shrink_to_fit();
-      }
-      pane_selections[pane_id] = i;
-      pane_names[pane_id] = name;
-      selected = i;
+      pane.selection = i;
+      pane.name_selection = name;
       just_changed = true;
     }
-    if ((!just_changed && is_selected) || selected == i)
+    if ((!just_changed && is_selected) || pane.selection == i)
     {
-      selected = i;
+      pane.selection = i;
       selected_key = key;
       selected_value = value;
     }
@@ -362,7 +347,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     ImGui::Text("empty...");
   ImGui::EndChild();
   ImGui::EndChild();
-  if (selected >= start_index && !selected_key.IsUndefined())
+  if (pane.selection >= start_index && !selected_key.IsUndefined())
   {
     ImGui::SameLine();
     StorageType new_type = GetStorageType(selected_value);
@@ -384,19 +369,20 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
           yytk->CallBuiltin("variable_instance_set", {object, selected_key, new_value});
           break;
         case STORAGE_ARRAY:
-          object[selected] = new_value;
+          object[pane.selection] = new_value;
           break;
         case STORAGE_DS_MAP:
           yytk->CallBuiltin("ds_map_replace", {object, selected_key, new_value});
           break;
         case STORAGE_DS_LIST:
-          yytk->CallBuiltin("ds_list_set", {object, RValue(selected), new_value});
+          yytk->CallBuiltin("ds_list_set", {object, RValue(pane.selection), new_value});
           break;
         }
       }
       EndEndPane();
     }
   }
+  panes[pane_id] = pane;
 }
 
 std::string GetObjectName(int i, RValue &parent)
