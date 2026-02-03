@@ -204,6 +204,32 @@ void BeginEndPane()
   ImGui::BeginChild("EDIT", ImVec2(0, -ImGui::GetFrameHeightWithSpacing()));
 }
 
+void EndEndPane()
+{
+  options_drawn = true;
+  ImGui::EndChild();
+  if (ImGui::Button("Options"))
+    ImGui::OpenPopup("options");
+  if (ImGui::BeginPopup("options")) {
+    ImGui::Checkbox("Hide Functions", &hide_functions);
+    ImGui::SameLine();
+    ImGui::Checkbox("Hide __ vars", &hide_dunder);
+    ImGui::SameLine();
+    ImGui::Checkbox("Sort Keys", &sort_names);
+    for (int i = 0; i < all_builtin_count; i++) {
+      BuiltinVarList *list = &all_builtin_types[i];
+      ImGui::Checkbox(list->name, &list->visible);
+      if (i % 3 != 2)
+        ImGui::SameLine();
+    }
+    ImGui::EndPopup();
+  }
+  ImGui::EndGroup();
+  ImGui::EndChild();
+  if (just_changed)
+    ImGui::SetScrollHereX(1.0);
+}
+
 std::string new_obj_name = "";
 double new_obj_x = 0;
 double new_obj_y = 0;
@@ -212,7 +238,7 @@ bool new_obj_set_z = false;
 double new_obj_depth = 0;
 
 void CreateObject() {
-  if (ImGui::Button("Create Object"))
+  if (ImGui::Button("Create"))
     ImGui::OpenPopup("createobj");
   if (ImGui::BeginPopup("createobj")) {
     ImGui::InputText("Object Name", &new_obj_name);
@@ -249,34 +275,6 @@ void CreateObject() {
   }
 }
 
-void EndEndPane()
-{
-  options_drawn = true;
-  ImGui::EndChild();
-  if (ImGui::Button("Options"))
-    ImGui::OpenPopup("options");
-  if (ImGui::BeginPopup("options")) {
-    ImGui::Checkbox("Hide Functions", &hide_functions);
-    ImGui::SameLine();
-    ImGui::Checkbox("Hide __ vars", &hide_dunder);
-    ImGui::SameLine();
-    ImGui::Checkbox("Sort Keys", &sort_names);
-    for (int i = 0; i < all_builtin_count; i++) {
-      BuiltinVarList *list = &all_builtin_types[i];
-      ImGui::Checkbox(list->name, &list->visible);
-      if (i % 3 != 2)
-        ImGui::SameLine();
-    }
-    ImGui::EndPopup();
-  }
-  ImGui::SameLine();
-  CreateObject();
-  ImGui::EndGroup();
-  ImGui::EndChild();
-  if (just_changed)
-    ImGui::SetScrollHereX(1.0);
-}
-
 void SetValue(StorageType type, const RValue &object, const RValue &key, int index, const RValue &value)
 {
   switch (type)
@@ -307,9 +305,6 @@ std::string new_var_name = "";
 
 void NewValue(StorageType type, RValue &object)
 {
-  if (object.IsUndefined())
-    return;
-  ImGui::SameLine();
   if (ImGui::Button("New"))
     ImGui::OpenPopup("newvar");
   if (ImGui::BeginPopup("newvar")) {
@@ -382,7 +377,11 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   RValue selected_key;
   RValue selected_value;
   ImGui::InputText("Search", &pane.search);
-  NewValue(type, object);
+  ImGui::SameLine();
+  if (object.IsUndefined())
+    CreateObject();
+  else
+    NewValue(type, object);
   ImGui::BeginChild("vars");
   for (int i = start_index; i < count; i++)
   {
