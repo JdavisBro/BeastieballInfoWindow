@@ -5,6 +5,8 @@ using namespace YYTK;
 namespace Utils
 {
 
+void Setup();
+
 RValue InstanceExists(const RValue &instance, const RValue &key);
 RValue InstanceExists(const RValue &instance, const char *key);
 RValue InstanceExists(const RValue &instance, const std::string_view key);

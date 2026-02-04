@@ -144,6 +144,7 @@ void CodeCallback(FWCodeEvent &Event)
 	}
 	if (!hooks_done)
 	{
+		Utils::Setup();
 		BeastieballCheck();
 		DoHooks();
 	}
