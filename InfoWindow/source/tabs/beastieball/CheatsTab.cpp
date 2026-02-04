@@ -266,7 +266,7 @@ void DoDebugChildren(RValue &thing)
 {
   if (!thing.IsStruct())
     return; // sometimes they are numbers
-  if (Utils::InstanceExists(thing, "action").ToBoolean())
+  if (Utils::InstanceExists(thing, "action"))
   {
     // is button
     bool pressed = false;
