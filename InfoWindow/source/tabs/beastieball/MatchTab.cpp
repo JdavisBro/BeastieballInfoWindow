@@ -7,6 +7,7 @@ using namespace YYTK;
 #include "../../ModuleMain.h"
 #include "../../Hooks.h"
 #include "../../Utils.h"
+#include "../../Storage.h"
 
 #include "MatchTab.h"
 
@@ -174,6 +175,12 @@ void MatchTab(bool *open)
     DoGame(game, can_save);
 
   ImGui::End();
+}
+
+void Store()
+{
+  Storage::Store("auto_save_enabled", &auto_save_enabled);
+  Storage::Store("auto_create_ai_after_load", &auto_create_ai_after_load);
 }
 
 }

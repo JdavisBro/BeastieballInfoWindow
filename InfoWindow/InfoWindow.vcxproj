@@ -184,6 +184,7 @@
     <ClCompile Include="source\tabs\beastieball\MatchTab.cpp" />
     <ClCompile Include="source\Hooks.cpp" />
     <ClCompile Include="source\Utils.cpp" />
+    <ClCompile Include="source\Storage.cpp" />
     <ClCompile Include="source\ModuleMain.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -201,6 +202,7 @@
     <ClInclude Include="include\imgui\imgui_internal.h" />
     <ClInclude Include="include\imgui\imconfig.h" />
     <ClInclude Include="include\imgui\imgui.h" />
+    <ClInclude Include="include\json.hpp" />
     <ClInclude Include="source\ImguiWindow.h" />
     <ClInclude Include="source\tabs\ObjectTab.h" />
     <ClInclude Include="source\tabs\beastieball\AiTab.h" />
@@ -209,6 +211,7 @@
     <ClInclude Include="source\tabs\beastieball\MatchTab.h" />
     <ClInclude Include="source\Hooks.h" />
     <ClCompile Include="source\Utils.h" />
+    <ClCompile Include="source\Storage.h" />
     <ClInclude Include="source\ModuleMain.h" />
   </ItemGroup>
   <ItemGroup>

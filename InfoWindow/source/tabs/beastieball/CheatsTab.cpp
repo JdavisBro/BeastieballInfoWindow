@@ -7,6 +7,7 @@ using namespace YYTK;
 #include "../../ModuleMain.h"
 #include "../../Hooks.h"
 #include "../../Utils.h"
+#include "../../Storage.h"
 
 #include <numbers>
 
@@ -456,6 +457,18 @@ void CheatsTab(bool *open)
   ImGui::EndChild();
 
   ImGui::End();
+}
+
+void Store()
+{
+  Storage::Store("debug_shortcuts", &debug_shortcuts);
+  Storage::Store("infinite_jumps", &infinite_jumps);
+  Storage::Store("camera_always_follow_player", &camera_always_follow_player);
+  Storage::Store("keep_freecam", &keep_freecam);
+  Storage::Store("do_pause_buffering", &do_pause_buffering);
+  Storage::Store("view_collision", &view_collision);
+  Storage::Store("draw_player_collision", &draw_player_collision);
+  Storage::Store("teleport_on_middle_click", &teleport_on_middle_click);
 }
 
 }

@@ -6,6 +6,7 @@ using namespace YYTK;
 #include "imgui/misc/cpp/imgui_stdlib.h"
 #include "../ModuleMain.h"
 #include "../Utils.h"
+#include "../Storage.h"
 
 #include <format>
 
@@ -497,6 +498,17 @@ void ObjectTab(bool *open)
   }
 
   ImGui::End();
+}
+
+void Store()
+{
+  Storage::Store("hide_functions", &hide_functions);
+  Storage::Store("hide_dunder", &hide_dunder);
+  Storage::Store("sort_names", &sort_names);
+  for (int i = 0; i < all_builtin_count; i++) {
+    BuiltinVarList &list = all_builtin_types[i];
+    Storage::Store(list.name, &list.visible);
+  }
 }
 
 }

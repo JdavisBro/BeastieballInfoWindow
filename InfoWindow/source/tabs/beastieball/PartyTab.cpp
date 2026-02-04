@@ -6,6 +6,7 @@ using namespace YYTK;
 #include "imgui/misc/cpp/imgui_stdlib.h"
 #include "../../ModuleMain.h"
 #include "../../Utils.h"
+#include "../../Storage.h"
 
 #include "PartyTab.h"
 
@@ -524,6 +525,13 @@ void PartyTab(bool *open)
     ImGui::Text("No Party.");
 
   ImGui::End();
+}
+
+void Store()
+{
+  Storage::Store("new_beastie_species", &new_beastie_species);
+  Storage::Store("level", &level);
+  Storage::Store("learn_all_plays", &learn_all_plays);
 }
 
 }
