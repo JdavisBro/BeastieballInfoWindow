@@ -5,6 +5,7 @@ using namespace YYTK;
 #include "imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
 #include "../../ModuleMain.h"
+#include "../../Utils.h"
 
 #include "PartyTab.h"
 
@@ -48,10 +49,10 @@ bool RelationshipSort(RelationshipData *a, RelationshipData *b)
 void GetRelationships(std::map<std::string, RelationshipData> &relationships, std::vector<RelationshipData *> &relationships_sorted, std::string pid)
 {
   bool same_beastie = pid == selected_copy.pid;
-  RValue all_relationships = yytk->CallBuiltin("variable_global_get", {"relationships"});
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
+  RValue all_relationships = Utils::GlobalGet("relationships");
+  RValue game_active = Utils::GlobalGet("GAME_ACTIVE");
   bool use_game = game_active.ToBoolean();
-  std::map<std::string, RValue> game_relationships = use_game ? yytk->CallBuiltin("variable_instance_get", {game_active, "relationship_data"}).ToMap() : std::map<std::string, RValue>();
+  std::map<std::string, RValue> game_relationships = use_game ? Utils::InstanceGet(game_active, "relationship_data").ToMap() : std::map<std::string, RValue>();
   std::vector<RValue> all_keys = yytk->CallBuiltin("variable_instance_get_names", {all_relationships}).ToVector();
   for (RValue key : all_keys)
   {
@@ -121,7 +122,7 @@ const char *coaching_types[] = {
 
 BeastieData CopyBeastieData(RValue &beastie)
 {
-  RValue char_dic = yytk->CallBuiltin("variable_global_get", {"char_dic"});
+  RValue char_dic = Utils::GlobalGet("char_dic");
   RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie["specie"]});
   double growth = species["growth"].ToDouble();
 
@@ -188,10 +189,10 @@ const char *GetRelationshipType(RelationshipData &relationship)
 
 void SetRelationship(std::string &pid, std::string &pid2, const char *name, RValue value)
 {
-  RValue all_relationships = yytk->CallBuiltin("variable_global_get", {"relationships"});
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
+  RValue all_relationships = Utils::GlobalGet("relationships");
+  RValue game_active = Utils::GlobalGet("GAME_ACTIVE");
   bool use_game = game_active.ToBoolean();
-  std::map<std::string, RValue> game_relationships = use_game ? yytk->CallBuiltin("variable_instance_get", {game_active, "relationship_data"}).ToMap() : std::map<std::string, RValue>();
+  std::map<std::string, RValue> game_relationships = use_game ? Utils::InstanceGet(game_active, "relationship_data").ToMap() : std::map<std::string, RValue>();
   std::string relationship_key = yytk->CallGameScript("gml_Script_relationship_get_key", {RValue(pid), RValue(pid2)}).ToString();
   DbgPrint(relationship_key.c_str());
   RValue relationship = (use_game && game_relationships.contains(relationship_key)) ? game_relationships[relationship_key] : all_relationships[relationship_key];
@@ -313,7 +314,7 @@ void SelectedBeastie(RValue beastie)
   RValue sport_beastie = yytk->CallGameScript("gml_Script_char_find_battler_by_pid", {beastie["pid"]});
   bool sport = sport_beastie.m_Kind == VALUE_OBJECT;
 
-  RValue char_dic = yytk->CallBuiltin("variable_global_get", {"char_dic"});
+  RValue char_dic = Utils::GlobalGet("char_dic");
   RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie["specie"]});
 
   ImGui::PushItemWidth(150);
@@ -355,7 +356,7 @@ void SelectedBeastie(RValue beastie)
   ImGui::PopItemWidth();
   ImGui::PushItemWidth(120);
 
-  RValue move_dic = yytk->CallBuiltin("variable_global_get", {"move_dic"});
+  RValue move_dic = Utils::GlobalGet("move_dic");
   std::string species_attklist;
   std::vector<RValue> species_attklist_rvalue = species["attklist"].ToVector();
   for (RValue id : species_attklist_rvalue)
@@ -393,7 +394,7 @@ void SelectedBeastie(RValue beastie)
   ImGui::PopItemWidth();
 
   RValue abilities = species["ability"];
-  RValue ability_dic = yytk->CallBuiltin("variable_global_get", {"ability_dic"});
+  RValue ability_dic = Utils::GlobalGet("ability_dic");
   int ability_count = yytk->CallBuiltin("array_length", {abilities}).ToInt32();
   for (int i = 0; i < ability_count; i++)
   {
@@ -434,7 +435,7 @@ std::string BeastieSpeciesToString(const RValue &species)
 
 void NewBeastie(RValue &party)
 {
-  RValue char_dic = yytk->CallBuiltin("variable_global_get", {"char_dic"});
+  RValue char_dic = Utils::GlobalGet("char_dic");
   RValue beastie_template = yytk->CallBuiltin("ds_map_find_value", {char_dic, RValue(new_beastie_species)});
   std::vector<RValue> char_dic_values = yytk->CallBuiltin("ds_map_values_to_array", {char_dic}).ToVector();
   int beastie_count = char_dic_values.size();
@@ -471,7 +472,7 @@ void NewBeastie(RValue &party)
 
 bool DrawParty()
 {
-  RValue data = yytk->CallBuiltin("variable_global_get", {"data"});
+  RValue data = Utils::GlobalGet("data");
   if (!data.ToBoolean())
     return false;
   RValue party = data["team_party"];
@@ -488,7 +489,7 @@ bool DrawParty()
   {
     RValue beastie = party[i];
     bool is_selected = beastie["pid"].ToString() == selected;
-    RValue char_dic = yytk->CallBuiltin("variable_global_get", {"char_dic"});
+    RValue char_dic = Utils::GlobalGet("char_dic");
     RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie["specie"]});
     std::string name = std::format("{}#{} - {} - Lvl {}", beastie["name"].ToString(), beastie["number"].ToString(), species["name"].ToString(), beastie["level"].ToString());
     if (ImGui::Selectable(name.c_str(), is_selected))

@@ -6,6 +6,7 @@ using namespace YYTK;
 #include "imgui/misc/cpp/imgui_stdlib.h"
 #include "../../ModuleMain.h"
 #include "../../Hooks.h"
+#include "../../Utils.h"
 
 #include <numbers>
 
@@ -19,20 +20,14 @@ struct Vec2
   double y;
 };
 
-RValue GetObjectInstance(const char *object_name)
-{
-  RValue asset = yytk->CallBuiltin("asset_get_index", {object_name});
-  return yytk->CallBuiltin("instance_find", {asset, 0});
-}
-
 void TeleportToPosition(Vec2 position)
 {
-  RValue player = GetObjectInstance("objPlayer");
+  RValue player = Utils::GetObjectInstance("objPlayer");
   double z = yytk->CallGameScript("gml_Script_collider_gravity_raycast", {position.x, position.y}).ToDouble();
-  yytk->CallBuiltin("variable_instance_set", {player, "x", position.x});
-  yytk->CallBuiltin("variable_instance_set", {player, "y", position.y});
-  yytk->CallBuiltin("variable_instance_set", {player, "z", z});
-  yytk->CallBuiltin("variable_instance_set", {player, "z_last", z}); // used for camera position, not updated until moved
+  Utils::InstanceSet(player, "x", position.x);
+  Utils::InstanceSet(player, "y", position.y);
+  Utils::InstanceSet(player, "z", z);
+  Utils::InstanceSet(player, "z_last", z); // used for camera position, not updated until moved
 }
 
 bool on_level_load_go = false;
@@ -40,7 +35,7 @@ Vec2 on_level_load_go_to;
 
 RValue FindLevel(double x, double y)
 {
-  std::vector<RValue> stumps = yytk->CallBuiltin("variable_global_get", {"world_data"})["level_stumps_array"].ToVector();
+  std::vector<RValue> stumps = Utils::GlobalGet("world_data")["level_stumps_array"].ToVector();
   RValue fallback;
   for (RValue level : stumps)
   {
@@ -59,9 +54,9 @@ RValue FindLevel(double x, double y)
 
 void TeleportToMapWorldPosition(RValue &game, const char *x_key, const char *y_key, double x_offset = 0, double y_offset = 0)
 {
-  RValue map = yytk->CallBuiltin("variable_instance_get", {game, "mn_map"});
-  bool menu_open = yytk->CallBuiltin("variable_global_get", {"menu_open"}).ToBoolean();
-  RValue open_menu = yytk->CallBuiltin("variable_global_get", {"menu_tab_open"});
+  RValue map = Utils::InstanceGet(game, "mn_map");
+  bool menu_open = Utils::GlobalGet("menu_open").ToBoolean();
+  RValue open_menu = Utils::GlobalGet("menu_tab_open");
   if (!menu_open || map["name"].ToString() != open_menu["name"].ToString())
     return;
   double zoom = map["zoom"].ToDouble();
@@ -74,7 +69,7 @@ void TeleportToMapWorldPosition(RValue &game, const char *x_key, const char *y_k
   on_level_load_go_to = {x, y};
   map["player_x"] = x;
   map["player_y"] = y;
-  if (target_level == yytk->CallBuiltin("variable_instance_get", {game, "level_id"}).ToString())
+  if (target_level == Utils::InstanceGet(game, "level_id").ToString())
   {
     TeleportToPosition(on_level_load_go_to);
     return;
@@ -95,7 +90,7 @@ void SaveTable(int &slot)
   ImGui::TableSetupColumn("Beastie 4");
   ImGui::TableSetupColumn("Beastie 5");
   ImGui::TableHeadersRow();
-  RValue stumps = yytk->CallBuiltin("variable_global_get", {"savedata_stumps"});
+  RValue stumps = Utils::GlobalGet("savedata_stumps");
   int stump_count = yytk->CallBuiltin("array_length", {stumps}).ToInt32();
   for (int i = 0; i <= stump_count; i++)
   {
@@ -130,18 +125,18 @@ void ReloadLevel(RValue &game)
 {
   yytk->CallGameScript("gml_Script_data_update_player_pos", {});
   yytk->CallGameScript("gml_Script_SceneClear", {});
-  RValue level_id = yytk->CallBuiltin("variable_instance_get", {game, "level_id"});
+  RValue level_id = Utils::InstanceGet(game, "level_id");
   yytk->CallGameScript("gml_Script_level_goto", {level_id, true});
 }
 
 void SetGroupRenders(RValue &group)
 {
-  RValue default_renders = yytk->CallBuiltin("variable_instance_get", {group, "DEFAULT_RENDERS"});
+  RValue default_renders = Utils::InstanceGet(group, "DEFAULT_RENDERS");
   RValue collider = group["collider"];
   if (default_renders.m_Kind == VALUE_UNDEFINED)
   {
     RValue renders = group["renders"];
-    yytk->CallBuiltin("variable_instance_set", {group, "DEFAULT_RENDERS", renders});
+    Utils::InstanceSet(group, "DEFAULT_RENDERS", renders);
     default_renders = renders;
   }
   group["renders"] = view_collision ? collider : default_renders;
@@ -149,7 +144,7 @@ void SetGroupRenders(RValue &group)
 
 void ToggleCollision(RValue &game)
 {
-  RValue browser = yytk->CallBuiltin("variable_global_get", {"__browser"});
+  RValue browser = Utils::GlobalGet("__browser");
   std::map<std::string, RValue> models = browser["content"]["models"].ToMap();
   for (auto model_pair : models)
   {
@@ -198,7 +193,7 @@ RValue &BuildBakedModels(CInstance *Self, CInstance *Other, RValue &ReturnValue,
 {
   if (view_collision)
   {
-    std::vector<RValue> models = yytk->CallBuiltin("variable_instance_get", {Self, "models_array"}).ToVector();
+    std::vector<RValue> models = Utils::InstanceGet(Self, "models_array").ToVector();
     for (RValue model : models)
     {
       model["effect_layer"] = 0;
@@ -215,7 +210,7 @@ RValue &ButtonlistPressed(CInstance *Self, CInstance *Other, RValue &ReturnValue
 {
   if (do_pause_buffering && yytk->CallBuiltin("keyboard_check", {161}).ToBoolean())
   {
-    RValue pause_buttons = yytk->CallBuiltin("variable_global_get", {"pause_buttons"});
+    RValue pause_buttons = Utils::GlobalGet("pause_buttons");
     if (pause_buttons.m_Object == Args[0]->m_Object)
     {
       ReturnValue = 1.0;
@@ -258,7 +253,7 @@ void DisplayPlayerVars(RValue &player)
   for (int i = 0; i < player_vars_count; i++)
   {
     ImGui::TableNextColumn();
-    RValue var = yytk->CallBuiltin("variable_instance_get", {player, player_vars[i]});
+    RValue var = Utils::InstanceGet(player, player_vars[i]);
     bool is_bool = var.m_Kind == VALUE_BOOL;
     ImGui::Text(is_bool ? var.ToBoolean() ? "true" : "false" : var.ToString().c_str());
   }
@@ -271,7 +266,7 @@ void DoDebugChildren(RValue &thing)
 {
   if (thing.m_Kind != VALUE_OBJECT)
     return; // sometimes they are numbers
-  if (yytk->CallBuiltin("variable_instance_exists", {thing, "action"}).ToBoolean())
+  if (Utils::InstanceExists(thing, "action").ToBoolean())
   {
     // is button
     bool pressed = false;
@@ -307,9 +302,9 @@ void DoDebugChildren(RValue &thing)
 
 void DoDebugShortcuts(RValue &game)
 {
-  if (debug_shortcuts && !yytk->CallBuiltin("instance_exists", {yytk->CallBuiltin("asset_get_index", {"objInit"})}).ToBoolean())
+  if (debug_shortcuts && !Utils::ObjectInstanceExists("objInit"))
   {
-    std::vector<RValue> stuff = yytk->CallBuiltin("variable_instance_get", {game, "debug_console_stuff"}).ToVector();
+    std::vector<RValue> stuff = Utils::InstanceGet(game, "debug_console_stuff").ToVector();
     for (RValue &thing : stuff)
       DoDebugChildren(thing);
   }
@@ -327,13 +322,13 @@ void DrawPlayerCollision(RValue &player)
 {
   yytk->CallBuiltin("draw_set_color", {CYLINDER_COLOR});
   yytk->CallBuiltin("draw_set_alpha", {CYLINDER_ALPHA});
-  double x = yytk->CallBuiltin("variable_instance_get", {player, "x"}).ToDouble();
-  double y = yytk->CallBuiltin("variable_instance_get", {player, "y"}).ToDouble();
-  double z = yytk->CallBuiltin("variable_instance_get", {player, "z"}).ToDouble();
-  double height = yytk->CallBuiltin("variable_instance_get", {player, "height"}).ToDouble();
-  double radius = yytk->CallBuiltin("variable_instance_get", {player, "collider_radius"}).ToDouble();
-  bool grounded = yytk->CallBuiltin("variable_instance_get", {player, "GROUNDED"}).ToBoolean();
-  double offset = yytk->CallBuiltin("variable_instance_get", {player, grounded ? "collider_z_offset" : "collider_z_offset_jump"}).ToDouble();
+  double x = Utils::InstanceGet(player, "x").ToDouble();
+  double y = Utils::InstanceGet(player, "y").ToDouble();
+  double z = Utils::InstanceGet(player, "z").ToDouble();
+  double height = Utils::InstanceGet(player, "height").ToDouble();
+  double radius = Utils::InstanceGet(player, "collider_radius").ToDouble();
+  bool grounded = Utils::InstanceGet(player, "GROUNDED").ToBoolean();
+  double offset = Utils::InstanceGet(player, grounded ? "collider_z_offset" : "collider_z_offset_jump").ToDouble();
   z = z + offset;
   height = height - offset;
   for (double step = 0.0; step < 2.0; step += CYLINDER_DIST)
@@ -352,19 +347,19 @@ int old_proj_mode = 0;
 
 void KeepFreecam(const RValue &player)
 {
-  RValue scenemanager = yytk->CallBuiltin("instance_find", {yytk->CallBuiltin("asset_get_index", {"objSceneManager"}), 0});
-  bool freecam = yytk->CallBuiltin("variable_global_get", {"FREE_CAM"}).ToBoolean();
-  int proj_mode = yytk->CallBuiltin("variable_instance_get", {scenemanager, "camera_projection_mode"}).ToInt32();
+  RValue scenemanager = Utils::GetObjectInstance("objSceneManager");
+  bool freecam = Utils::GlobalGet("FREE_CAM").ToBoolean();
+  int proj_mode = Utils::InstanceGet(scenemanager, "camera_projection_mode").ToInt32();
   if (proj_mode != 3) {
     old_proj_mode = proj_mode;
   }
   if (keep_freecam && !freecam) {
-    RValue shot = yytk->CallBuiltin("variable_instance_get", {scenemanager, "shot_overworld"});
-    shot["look_x"] = yytk->CallBuiltin("variable_instance_get", {player, "x"});
-    shot["look_y"] = yytk->CallBuiltin("variable_instance_get", {player, "y"});
-    shot["look_z"] = yytk->CallBuiltin("variable_instance_get", {player, "z"});
+    RValue shot = Utils::InstanceGet(scenemanager, "shot_overworld");
+    shot["look_x"] = Utils::InstanceGet(player, "x");
+    shot["look_y"] = Utils::InstanceGet(player, "y");
+    shot["look_z"] = Utils::InstanceGet(player, "z");
   }
-  yytk->CallBuiltin("variable_instance_set", {scenemanager, "camera_projection_mode", (keep_freecam && !freecam) ? 3 : old_proj_mode});
+  Utils::InstanceSet(scenemanager, "camera_projection_mode", (keep_freecam && !freecam) ? 3 : old_proj_mode);
 }
 
 void CheatsTab(bool *open)
@@ -374,24 +369,24 @@ void CheatsTab(bool *open)
     TeleportToPosition(on_level_load_go_to);
     on_level_load_go = false;
   }
-  RValue game = GetObjectInstance("objGame");
+  RValue game = Utils::GetObjectInstance("objGame");
   if (teleport_on_middle_click && yytk->CallBuiltin("mouse_check_button_pressed", {3}))
     TeleportToMapWorldPosition(game, "mouse_world_x", "mouse_world_y", 380.0);
   DoDebugShortcuts(game);
 
-  bool debug_menu = yytk->CallBuiltin("variable_instance_get", {game, "debug_console"}).ToBoolean();
+  bool debug_menu = Utils::InstanceGet(game, "debug_console").ToBoolean();
   if (yytk->CallBuiltin("keyboard_check_pressed", {192}).ToBoolean())
-    yytk->CallBuiltin("variable_instance_set", {game, "debug_console", !debug_menu});
+    Utils::InstanceSet(game, "debug_console", !debug_menu);
 
-  RValue player = GetObjectInstance("objPlayer");
+  RValue player = Utils::GetObjectInstance("objPlayer");
   if (draw_player_collision && player.ToBoolean())
     DrawPlayerCollision(player);
   if (infinite_jumps)
   {
     if (yytk->CallBuiltin("keyboard_check_pressed", {32.0}).ToBoolean())
     {
-      RValue jump_speed = yytk->CallBuiltin("variable_instance_get", {player, "jump_speed"});
-      yytk->CallBuiltin("variable_instance_set", {player, "z_speed", jump_speed});
+      RValue jump_speed = Utils::InstanceGet(player, "jump_speed");
+      Utils::InstanceSet(player, "z_speed", jump_speed);
     }
   }
 
@@ -400,8 +395,8 @@ void CheatsTab(bool *open)
 
   if (camera_always_follow_player)
   {
-    RValue player_z = yytk->CallBuiltin("variable_instance_get", {player, "z"});
-    yytk->CallBuiltin("variable_instance_set", {player, "z_last", player_z});
+    RValue player_z = Utils::InstanceGet(player, "z");
+    Utils::InstanceSet(player, "z_last", player_z);
   }
 
   if (!ImGui::Begin("Cheats", open, ImGuiWindowFlags_NoFocusOnAppearing))
@@ -411,7 +406,7 @@ void CheatsTab(bool *open)
   }
 
   if (ImGui::Checkbox("Debug Menu", &debug_menu))
-    yytk->CallBuiltin("variable_instance_set", {game, "debug_console", debug_menu});
+    Utils::InstanceSet(game, "debug_console", debug_menu);
   ImGui::SameLine();
   ImGui::Checkbox("Do Debug Menu Shortcuts", &debug_shortcuts);
   ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
@@ -441,7 +436,7 @@ void CheatsTab(bool *open)
 
   ImGui::Text("Save Files:");
   ImGui::BeginChild("saves", ImVec2(0, 0), ImGuiChildFlags_Borders);
-  int slot = yytk->CallBuiltin("variable_global_exists", {"SAVE_SLOT"}) ? yytk->CallBuiltin("variable_global_get", {"SAVE_SLOT"}).ToInt32() : 0;
+  int slot = Utils::GlobalExists("SAVE_SLOT") ? Utils::GlobalGet("SAVE_SLOT").ToInt32() : 0;
   int prev_slot = slot;
   ImGui::SetNextItemWidth(150);
   ImGui::InputInt("Save Slot", &slot, 1, 1);
@@ -457,7 +452,7 @@ void CheatsTab(bool *open)
   }
   SaveTable(slot);
   if (prev_slot != slot)
-    yytk->CallBuiltin("variable_global_set", {"SAVE_SLOT", slot});
+    Utils::GlobalSet("SAVE_SLOT", slot);
 
   ImGui::EndChild();
 

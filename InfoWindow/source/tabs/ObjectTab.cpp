@@ -5,6 +5,7 @@ using namespace YYTK;
 #include "imgui.h"
 #include "imgui/misc/cpp/imgui_stdlib.h"
 #include "../ModuleMain.h"
+#include "../Utils.h"
 
 #include <format>
 
@@ -84,7 +85,7 @@ RValue GetIndex(int i, RValue &parent, RValue &name, StorageType type)
     return parent[i];
   case STORAGE_STRUCT:
   case STORAGE_INSTANCE:
-    return yytk->CallBuiltin("variable_instance_get", {parent, name});
+    return Utils::InstanceGet(parent, name);
   case STORAGE_DS_MAP:
     return yytk->CallBuiltin("ds_map_find_value", {parent, name});
   case STORAGE_DS_LIST:
@@ -110,7 +111,7 @@ std::string RValueToString(RValue &value)
   {
     if (!yytk->CallBuiltin("instance_exists", {value}))
       break;
-    RValue object = yytk->CallBuiltin("variable_instance_get", {value, "object_index"});
+    RValue object = Utils::InstanceGet(value, "object_index");
     return std::format("Instance ({})", yytk->CallBuiltin("object_get_name", {object}).ToString());
   }
   case VALUE_STRING:
@@ -254,11 +255,11 @@ void CreateObject() {
       if (selection >= 0) {
         RValue old_inst = yytk->CallBuiltin("instance_find", {-3, selection});
         if (old_inst.ToBoolean()) {
-          new_obj_x = yytk->CallBuiltin("variable_instance_get", {old_inst, "x"}).ToDouble();
-          new_obj_y = yytk->CallBuiltin("variable_instance_get", {old_inst, "y"}).ToDouble();
-          new_obj_set_z = yytk->CallBuiltin("variable_instance_exists", {old_inst, "z"}).ToBoolean();
+          new_obj_x = Utils::InstanceGet(old_inst, "x").ToDouble();
+          new_obj_y = Utils::InstanceGet(old_inst, "y").ToDouble();
+          new_obj_set_z = Utils::InstanceExists(old_inst, "z").ToBoolean();
           if (new_obj_set_z)
-            new_obj_z = yytk->CallBuiltin("variable_instance_get", {old_inst, "z"}).ToDouble();
+            new_obj_z = Utils::InstanceGet(old_inst, "z").ToDouble();
         }
       }
     }
@@ -268,7 +269,7 @@ void CreateObject() {
       if (obj.ToBoolean() && yytk->CallBuiltin("object_exists", {obj}).ToBoolean()) {
         RValue inst = yytk->CallBuiltin("instance_create_depth", {new_obj_x, new_obj_y, new_obj_depth, obj});
         if (new_obj_set_z)
-          yytk->CallBuiltin("variable_instance_set", {inst, "z", new_obj_z});
+          Utils::InstanceSet(inst, "z", new_obj_z);
       }
     }
     ImGui::EndPopup();
@@ -281,7 +282,7 @@ void SetValue(StorageType type, const RValue &object, const RValue &key, int ind
   {
   case STORAGE_STRUCT:
   case STORAGE_INSTANCE:
-    yytk->CallBuiltin("variable_instance_set", {object, key, value});
+    Utils::InstanceSet(object, key, value);
     break;
   case STORAGE_ARRAY:
     if (index == -1)
@@ -446,7 +447,7 @@ std::string GetObjectName(int i, RValue &parent)
   if (i == -1)
     return "-: Global";
   RValue instance = yytk->CallBuiltin("instance_find", {-3, i});
-  RValue object = yytk->CallBuiltin("variable_instance_get", {instance, "object_index"});
+  RValue object = Utils::InstanceGet(instance, "object_index");
   return std::format("{}: {}", i, yytk->CallBuiltin("object_get_name", {object}).ToString());
 }
 

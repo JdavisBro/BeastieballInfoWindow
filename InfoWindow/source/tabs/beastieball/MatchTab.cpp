@@ -6,6 +6,7 @@ using namespace YYTK;
 #include "imgui/misc/cpp/imgui_stdlib.h"
 #include "../../ModuleMain.h"
 #include "../../Hooks.h"
+#include "../../Utils.h"
 
 #include "MatchTab.h"
 
@@ -47,14 +48,14 @@ GameplayState SaveState(RValue &game)
 {
   AiTab::Undo(game);
   GameplayState state;
-  state.name = std::format("Turn {:03d}", yytk->CallBuiltin("variable_instance_get", {game, "round_count"}).ToInt32());
+  state.name = std::format("Turn {:03d}", Utils::InstanceGet(game, "round_count").ToInt32());
   std::vector<RValue> names = yytk->CallBuiltin("variable_instance_get_names", {game}).ToVector();
   for (RValue key_rv : names)
   {
     std::string key = key_rv.ToString();
     if (IsExcludedName(key))
       continue;
-    RValue value = yytk->CallBuiltin("variable_instance_get", {game, key_rv});
+    RValue value = Utils::InstanceGet(game, key_rv);
     switch (value.m_Kind)
     {
     case VALUE_INT64:
@@ -84,15 +85,15 @@ void LoadState(RValue &game, GameplayState &state)
   AiTab::Undo(game);
   for (auto data : state.normal_values)
   {
-    yytk->CallBuiltin("variable_instance_set", {game, RValue(data.first), data.second});
+    Utils::InstanceSet(game, data.first, data.second);
   }
   for (auto data : state.elephant_values)
   {
     RValue value = yytk->CallGameScript("gml_Script_ElephantImportString", {data.second});
-    yytk->CallBuiltin("variable_instance_set", {game, RValue(data.first), value});
+    Utils::InstanceSet(game, data.first, value);
   }
-  yytk->CallBuiltin("variable_instance_set", {game, "ai_choicegraph", RValue()});
-  yytk->CallBuiltin("variable_instance_set", {game, "ai_selecting", -1});
+  Utils::InstanceSet(game, "ai_choicegraph", RValue());
+  Utils::InstanceSet(game, "ai_selecting", -1);
   if (auto_create_ai_after_load)
     AiTab::MakeAi(game); // from AiTab
 }
@@ -144,10 +145,10 @@ bool DoAutoSave(RValue &game)
 {
   if (!game.ToBoolean())
     return false;
-  int round = yytk->CallBuiltin("variable_instance_get", {game, "round_count"}).ToInt32();
-  bool scene_playing = yytk->CallBuiltin("variable_global_get", {"SCENE_PLAYING"}).ToBoolean();
-  int menu_input_freeze = yytk->CallBuiltin("variable_instance_get", {game, "menu_input_freeze"}).ToInt32();
-  int selection_mode = yytk->CallBuiltin("variable_instance_get", {game, "selection_mode"}).ToInt32();
+  int round = Utils::InstanceGet(game, "round_count").ToInt32();
+  bool scene_playing = Utils::GlobalGet("SCENE_PLAYING").ToBoolean();
+  int menu_input_freeze = Utils::InstanceGet(game, "menu_input_freeze").ToInt32();
+  int selection_mode = Utils::InstanceGet(game, "selection_mode").ToInt32();
   bool can_save = !scene_playing && menu_input_freeze == 0 && selection_mode == 0;
   if (can_save && auto_save_enabled && !states.contains(round))
     states[round] = SaveState(game);
@@ -156,7 +157,7 @@ bool DoAutoSave(RValue &game)
 
 void MatchTab(bool *open)
 {
-  RValue game = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
+  RValue game = Utils::GlobalGet("GAME_ACTIVE");
   bool can_save = DoAutoSave(game);
   if (!ImGui::Begin("Match", open))
   {
