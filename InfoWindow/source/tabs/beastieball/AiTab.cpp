@@ -7,6 +7,7 @@ using namespace YYTK;
 #include "../../ModuleMain.h"
 #include "../../Hooks.h"
 #include "../../Utils.h"
+#include "../../Storage.h"
 
 #include "AiTab.h"
 
@@ -415,6 +416,14 @@ void AiTab(bool *open)
   DrawAiTree(game_active);
 
   ImGui::End();
+}
+
+void Store()
+{
+  Storage::Store("auto_create_ai", &auto_create_ai);
+  Storage::Store("draw_all", &draw_all);
+  Storage::Store("draw_intermediary", &draw_intermediary);
+  Storage::Store("draw_notpossible", &draw_notpossible);
 }
 
 }

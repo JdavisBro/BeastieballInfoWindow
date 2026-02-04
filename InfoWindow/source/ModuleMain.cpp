@@ -12,6 +12,7 @@ using namespace YYTK;
 #include "Hooks.h"
 #include "ImguiWindow.h"
 #include "Utils.h"
+#include "Storage.h"
 #include "tabs/ObjectTab.h"
 #include "tabs/beastieball/AiTab.h"
 #include "tabs/beastieball/MatchTab.h"
@@ -61,17 +62,31 @@ struct TabInfo
 	bool open;
 	bool beastieball;
 	std::function<void(bool *)> draw;
+	const char *storage_category = nullptr;
+	std::function<void()> store = nullptr;
 };
 
 TabInfo tabs[] = {
 	{"ImGui Demo", false, false, DemoWindow},
-	{"Object Tab", true, false, ObjectTab::ObjectTab},
-	{"AI Tab", true, true, AiTab::AiTab},
-	{"Match Tab", true, true, MatchTab::MatchTab},
-	{"Party Tab", true, true, PartyTab::PartyTab},
-	{"Cheats Tab", true, true, CheatsTab::CheatsTab},
+	{"Object Tab", true, false, ObjectTab::ObjectTab, "ObjectTab", ObjectTab::Store},
+	{"AI Tab", true, true, AiTab::AiTab, "AiTab", AiTab::Store},
+	{"Match Tab", true, true, MatchTab::MatchTab, "MatchTab", MatchTab::Store},
+	{"Party Tab", true, true, PartyTab::PartyTab, "PartyTab", PartyTab::Store},
+	{"Cheats Tab", true, true, CheatsTab::CheatsTab, "CheatsTab", CheatsTab::Store},
 };
 const int tab_count = sizeof(tabs) / sizeof(TabInfo);
+
+void ReadStorage()
+{
+	Storage::LoadFile();
+	for (int i = 0; i < tab_count; i++)
+	{
+		TabInfo &tab = tabs[i];
+		if (tab.storage_category) Storage::category = tab.storage_category;
+		if (tab.store) tab.store();
+	}
+	Storage::reading = false;
+}
 
 void PopupMenu(ImGuiID dockspace)
 {
@@ -98,11 +113,20 @@ void PopupMenu(ImGuiID dockspace)
 				continue;
 			ImGui::Checkbox(tab.name, &tab.open);
 		}
+		ImGui::Text("Settings");
+		ImGui::Checkbox("Disable Save", &Storage::save_disbled);
+		if (ImGui::Button("Reset Saved Data to Default")) {
+			Storage::ResetToDefault();
+			Storage::reading = true;
+			ReadStorage();
+		}
 		ImGui::EndPopup();
 	}
 }
 
 bool has_drawn = false;
+
+std::filesystem::path save_dir = "mod_data/";
 
 void CodeCallback(FWCodeEvent &Event)
 {
@@ -133,6 +157,9 @@ void CodeCallback(FWCodeEvent &Event)
 	static bool window_exists = false;
 	if (!window_exists)
 	{
+		if (!std::filesystem::is_directory(save_dir))
+			std::filesystem::create_directory(save_dir);
+		ReadStorage();
 		if (!ImguiCreateWindow())
 		{
 			window_exists = true;
@@ -161,8 +188,11 @@ void CodeCallback(FWCodeEvent &Event)
 				continue;
 			ImGui::SetNextWindowDockID(dockspace, ImGuiCond_FirstUseEver);
 			tab.draw(&tab.open);
+			if (tab.storage_category) Storage::category = tab.storage_category;
+			if (tab.store) tab.store();
 		}
 		ImguiFrameEnd();
+		Storage::SaveFile();
 	}
 
 	// remove unfocus low fps.

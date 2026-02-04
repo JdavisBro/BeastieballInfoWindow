@@ -64,6 +64,7 @@ int ImguiCreateWindow()
     io.ConfigFlags |= ImGuiConfigFlags_NavEnableGamepad;  // Enable Gamepad Controls
 
     io.ConfigFlags |= ImGuiConfigFlags_DockingEnable;
+    io.IniFilename = "mod_data/InfoWindowImgui.ini";
 
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
