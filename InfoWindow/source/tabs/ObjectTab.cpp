@@ -76,7 +76,7 @@ RValue GetIndex(int i, RValue &parent, RValue &name, StorageType type)
       yytk->GetGlobalInstance(&global);
       return global->ToRValue();
     }
-    return yytk->CallBuiltin("instance_find", {RValue(-3), RValue(i)});
+    return yytk->CallBuiltin("instance_find", {-3, i});
   }
   switch (type)
   {
@@ -88,7 +88,7 @@ RValue GetIndex(int i, RValue &parent, RValue &name, StorageType type)
   case STORAGE_DS_MAP:
     return yytk->CallBuiltin("ds_map_find_value", {parent, name});
   case STORAGE_DS_LIST:
-    return yytk->CallBuiltin("ds_list_find_value", {parent, RValue(i)});
+    return yytk->CallBuiltin("ds_list_find_value", {parent, i});
   }
   return RValue();
 }
@@ -110,7 +110,7 @@ std::string RValueToString(RValue &value)
   {
     if (!yytk->CallBuiltin("instance_exists", {value}))
       break;
-    RValue object = yytk->CallBuiltin("variable_instance_get", {value, RValue("object_index")});
+    RValue object = yytk->CallBuiltin("variable_instance_get", {value, "object_index"});
     return std::format("Instance ({})", yytk->CallBuiltin("object_get_name", {object}).ToString());
   }
   case VALUE_STRING:
@@ -318,13 +318,13 @@ void NewValue(StorageType type, RValue &object)
     }
     if (!name_check || (!new_var_name.empty() && !new_var_name.starts_with("@@"))) {
       if (ImGui::Button("Create Bool"))
-        SetValue(type, object, RValue(new_var_name), -1, RValue(false));
+        SetValue(type, object, RValue(new_var_name), -1, false);
       ImGui::SameLine();
       if (ImGui::Button("Create Number"))
-        SetValue(type, object, RValue(new_var_name), -1, RValue(0.0));
+        SetValue(type, object, RValue(new_var_name), -1, 0.0);
       ImGui::SameLine();
       if (ImGui::Button("Create String"))
-        SetValue(type, object, RValue(new_var_name), -1, RValue(""));
+        SetValue(type, object, RValue(new_var_name), -1, "");
     }
     ImGui::EndPopup();
   }
@@ -373,7 +373,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     break;
   }
   if (use_names && sort_names)
-    yytk->CallBuiltin("array_sort", {names, RValue(true)});
+    yytk->CallBuiltin("array_sort", {names, true});
   RValue selected_key;
   RValue selected_value;
   ImGui::InputText("Search", &pane.search);
@@ -445,9 +445,8 @@ std::string GetObjectName(int i, RValue &parent)
 {
   if (i == -1)
     return "-: Global";
-  RValue instance = yytk->CallBuiltin("instance_find", {RValue(-3),
-                                                        RValue(i)});
-  RValue object = yytk->CallBuiltin("variable_instance_get", {instance, RValue("object_index")});
+  RValue instance = yytk->CallBuiltin("instance_find", {-3, i});
+  RValue object = yytk->CallBuiltin("variable_instance_get", {instance, "object_index"});
   return std::format("{}: {}", i, yytk->CallBuiltin("object_get_name", {object}).ToString());
 }
 

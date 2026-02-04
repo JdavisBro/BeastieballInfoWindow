@@ -13,12 +13,12 @@ namespace AiTab {
 
 RValue InstanceGet(const RValue &instance, const char *name)
 {
-  return yytk->CallBuiltin("variable_instance_get", {instance, RValue(name)});
+  return yytk->CallBuiltin("variable_instance_get", {instance, name});
 }
 
 void InstanceSet(const RValue &instance, const char *name, const RValue &value)
 {
-  yytk->CallBuiltin("variable_instance_set", {instance, RValue(name), value});
+  yytk->CallBuiltin("variable_instance_set", {instance, name, value});
 }
 
 void Undo(const RValue &game_active)
@@ -70,17 +70,16 @@ void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
 {
   Undo(game_active);
   yytk->CallGameScript("gml_Script_board_snapshot", {});
-  InstanceSet(game_active, "ai_selecting", RValue(found_ai));
+  InstanceSet(game_active, "ai_selecting", found_ai);
   RValue aitreeElephant = yytk->CallBuiltin("json_parse", {"{\"_\": \"class_aitree\"}"});
   RValue aitree = yytk->CallGameScript("gml_Script_ElephantFromJSON", {aitreeElephant});
   InstanceSet(game_active, "ai_choicegraph", aitree);
-  RValue snapshot = yytk->CallGameScript("gml_Script_board_snapshot_save", {RValue(false)});
+  RValue snapshot = yytk->CallGameScript("gml_Script_board_snapshot_save", {false});
   aitree["root_snapshot"] = snapshot;
 }
 
-void AutoMakeAi()
+void AutoMakeAi(const RValue &game_active)
 {
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
   int found_ai = FindAi(game_active);
   if (found_ai == -2)
   {
@@ -97,20 +96,18 @@ void AutoMakeAi()
   ActuallyMakeAi(game_active, found_ai);
 }
 
-void MakeAi()
+void MakeAi(const RValue &game_active)
 {
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
   int found_ai = FindAi(game_active);
   if (found_ai < 0)
     return;
   ActuallyMakeAi(game_active, found_ai);
 }
 
-void DeleteAi()
+void DeleteAi(const RValue &game_active)
 {
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
   InstanceSet(game_active, "ai_choicegraph", RValue());
-  InstanceSet(game_active, "ai_selecting", RValue(-1));
+  InstanceSet(game_active, "ai_selecting", -1);
 }
 
 // MARK: Aitree Storing
@@ -148,9 +145,8 @@ AiBranch AddBranch(const RValue &branch)
   return branch_rep;
 }
 
-void CreateAiTree()
+void CreateAiTree(const RValue &game_active)
 {
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
   if (!game_active.ToBoolean())
     return;
   RValue ai_choicegraph = InstanceGet(game_active, "ai_choicegraph");
@@ -177,7 +173,7 @@ RValue &AitreeReplay(CInstance *Self, CInstance *Other, RValue &ReturnValue, int
   if (numArgs > 0 && (*Args[0]).ToBoolean() && !replay_saved_tree)
   {
     replay_saved_tree = true;
-    CreateAiTree();
+    CreateAiTree(yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"}));
     rigged_for_path = {};
   }
   aitreeReplayOriginal(Self, Other, ReturnValue, numArgs, Args);
@@ -190,7 +186,7 @@ double erratic_result = 0;
 PFUNC_YYGMLScript aiBoardEvalOriginal = nullptr;
 RValue &AiBoardEval(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
+  RValue game_active = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
   int32_t ai_selecting = InstanceGet(game_active, "ai_selecting").ToInt32();
   RValue teams_data = InstanceGet(game_active, "teams_data");
   RValue team_ai = teams_data[ai_selecting]["ai"];
@@ -219,13 +215,13 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
   }
   else if (numArgs == 0 || (*Args[0]).m_Kind == VALUE_UNDEFINED) // is from board eval
   {
-    RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
+    RValue game_active = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
     int32_t ai_selecting = InstanceGet(game_active, "ai_selecting").ToInt32();
     RValue teams_data = InstanceGet(game_active, "teams_data");
     RValue team_ai = teams_data[ai_selecting]["ai"];
 
     erraticness = team_ai["erratic"].ToDouble();
-    erratic_result = yytk->CallBuiltin("random", {RValue(120)}).ToDouble() * erraticness;
+    erratic_result = yytk->CallBuiltin("random", {120}).ToDouble() * erraticness;
 
     if (!rigged_for_path.empty())
     {
@@ -253,7 +249,7 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
       }
       erratic_result = erraticness * 120 * path_correct;
     }
-    InstanceSet(tree, "erratic_result", RValue(erratic_result));
+    InstanceSet(tree, "erratic_result", erratic_result);
   }
   aitreeSelectionSubmitOriginal(Self, Other, ReturnValue, numArgs, Args);
   return ReturnValue;
@@ -277,7 +273,7 @@ bool shouldBranchShow(const std::string &text)
   return text.find("clicks on") == -1 && !text.starts_with("select");
 }
 
-void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> &path)
+void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> &path, const RValue game_active)
 {
   if (!draw_all && branch.text == "" && branch.eval == -1)
     return;
@@ -313,7 +309,7 @@ void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> &path)
     for (int i = 0; i < child_count; i++)
     {
       path.push_back(i);
-      DrawBranch(branch.children[i], i, path);
+      DrawBranch(branch.children[i], i, path, game_active);
       path.pop_back();
     }
     if (show_node)
@@ -322,7 +318,7 @@ void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> &path)
   if (!child_count && show_node && ImGui::IsItemClicked())
   {
     rigged_for_path = path;
-    MakeAi();
+    MakeAi(game_active);
   }
 
   if (show_node)
@@ -331,7 +327,7 @@ void DrawBranch(AiBranch &branch, int index, std::vector<int32_t> &path)
   }
 }
 
-void DrawAiTree()
+void DrawAiTree(const RValue &game_active)
 {
   ImGui::Checkbox("Show All", &draw_all);
   ImGui::SameLine();
@@ -350,7 +346,7 @@ void DrawAiTree()
   for (int i = 0; i < root_children; i++)
   {
     path[0] = i;
-    DrawBranch(aitree.children[i], i, path);
+    DrawBranch(aitree.children[i], i, path, game_active);
   }
   ImGui::EndChild();
 }
@@ -391,7 +387,7 @@ void SimulateTree()
     size_t favorite = 0;
     for (int end_i = 0; end_i < end_count; end_i++)
     {
-      double eval = ends[end_i]->eval + yytk->CallBuiltin("random", {RValue(120)}).ToDouble() * erraticness;
+      double eval = ends[end_i]->eval + yytk->CallBuiltin("random", {120}).ToDouble() * erraticness;
       if (eval > sim_max_eval)
       {
         sim_max_eval = eval;
@@ -408,23 +404,24 @@ bool auto_create_ai = true;
 // MARK: Tab Stuff
 void AiTab(bool *open)
 {
+  RValue game_active = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
   replay_saved_tree = false;
   if (auto_create_ai)
-    AutoMakeAi();
+    AutoMakeAi(game_active);
   if (!ImGui::Begin("AI Info", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
     return;
   }
   if (ImGui::Button("Make AI"))
-    MakeAi();
+    MakeAi(game_active);
   ImGui::SameLine();
   if (ImGui::Button("Simulate Chances"))
     SimulateTree();
   ImGui::SameLine();
   ImGui::Checkbox("Auto Create AI", &auto_create_ai);
-  CreateAiTree();
-  DrawAiTree();
+  CreateAiTree(game_active);
+  DrawAiTree(game_active);
 
   ImGui::End();
 }
