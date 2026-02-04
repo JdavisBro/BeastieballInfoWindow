@@ -132,7 +132,7 @@ RValue GetObjectInstance(const char *object_name, int index)
 
 bool ObjectInstanceExists(const char *object_name)
 {
-    return CallBuiltin(instance_exists, {CallBuiltin(asset_get_index, {object_name}), 0}).ToBoolean();
+    return CallBuiltin(instance_exists, {CallBuiltin(asset_get_index, {object_name})}).ToBoolean();
 }
 
 }

@@ -157,6 +157,7 @@ void CodeCallback(FWCodeEvent &Event)
 	static bool window_exists = false;
 	if (!window_exists)
 	{
+		Utils::Setup();
 		if (!std::filesystem::is_directory(save_dir))
 			std::filesystem::create_directory(save_dir);
 		ReadStorage();
@@ -171,7 +172,6 @@ void CodeCallback(FWCodeEvent &Event)
 	}
 	if (!hooks_done)
 	{
-		Utils::Setup();
 		BeastieballCheck();
 		DoHooks();
 	}
