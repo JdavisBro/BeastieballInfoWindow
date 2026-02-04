@@ -412,15 +412,18 @@ void CheatsTab(bool *open)
 
   if (ImGui::Checkbox("Debug Menu", &debug_menu))
     yytk->CallBuiltin("variable_instance_set", {game, "debug_console", debug_menu});
+  ImGui::SameLine();
   ImGui::Checkbox("Do Debug Menu Shortcuts", &debug_shortcuts);
   ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
   ImGui::Checkbox("Camera Always Follow Player", &camera_always_follow_player);
+  ImGui::SameLine();
   if (ImGui::Checkbox("Keep Freecam Shot", &keep_freecam) && !keep_freecam)
     KeepFreecam(player);
   ImGui::Checkbox("Pause Buffer when RShift held.", &do_pause_buffering);
 
   if (ImGui::Checkbox("View Collision Only", &view_collision))
     ToggleCollision(game);
+  ImGui::SameLine();
   ImGui::Checkbox("Draw Player Collision", &draw_player_collision);
 
   if (ImGui::Button("Reload Level"))
