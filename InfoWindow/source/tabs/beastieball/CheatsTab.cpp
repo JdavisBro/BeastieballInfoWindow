@@ -121,7 +121,7 @@ bool infinite_jumps = false;
 bool view_collision = false;
 bool camera_always_follow_player = false;
 
-void ReloadLevel(RValue &game)
+void ReloadLevel(const RValue &game)
 {
   yytk->CallGameScript("gml_Script_data_update_player_pos", {});
   yytk->CallGameScript("gml_Script_SceneClear", {});
@@ -142,8 +142,10 @@ void SetGroupRenders(RValue &group)
   group["renders"] = view_collision ? collider : default_renders;
 }
 
-void ToggleCollision(RValue &game)
+void ToggleCollision(const RValue &game)
 {
+  if (Utils::ObjectInstanceExists("objInit"))
+    return;
   RValue browser = Utils::GlobalGet("__browser");
   std::map<std::string, RValue> models = browser["content"]["models"].ToMap();
   for (auto model_pair : models)
@@ -347,6 +349,8 @@ int old_proj_mode = 0;
 
 void KeepFreecam(const RValue &player)
 {
+  if (Utils::ObjectInstanceExists("objInit"))
+    return;
   RValue scenemanager = Utils::GetObjectInstance("objSceneManager");
   bool freecam = Utils::GlobalGet("FREE_CAM").ToBoolean();
   int proj_mode = Utils::InstanceGet(scenemanager, "camera_projection_mode").ToInt32();
@@ -464,11 +468,20 @@ void Store()
   Storage::Store("debug_shortcuts", &debug_shortcuts);
   Storage::Store("infinite_jumps", &infinite_jumps);
   Storage::Store("camera_always_follow_player", &camera_always_follow_player);
-  Storage::Store("keep_freecam", &keep_freecam);
   Storage::Store("do_pause_buffering", &do_pause_buffering);
-  Storage::Store("view_collision", &view_collision);
   Storage::Store("draw_player_collision", &draw_player_collision);
   Storage::Store("teleport_on_middle_click", &teleport_on_middle_click);
+
+  bool old_keep_freecam = keep_freecam;
+  Storage::Store("keep_freecam", &keep_freecam);
+  if (old_keep_freecam != keep_freecam && !keep_freecam && Utils::ObjectInstanceExists("objPlayer"))
+    KeepFreecam(Utils::GetObjectInstance("objPlayer"));
+
+  bool old_view_collision = view_collision;
+  Storage::Store("view_collision", &view_collision);
+  if (old_view_collision != view_collision) {
+    ToggleCollision(Utils::GetObjectInstance("objGame"));
+  }
 }
 
 }
