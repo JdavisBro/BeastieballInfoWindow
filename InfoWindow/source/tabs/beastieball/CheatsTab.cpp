@@ -20,9 +20,8 @@ struct Vec2
   double y;
 };
 
-void TeleportToPosition(Vec2 position)
+void TeleportToPosition(RValue &player, Vec2 position)
 {
-  RValue player = Utils::GetObjectInstance("objPlayer");
   double z = yytk->CallGameScript("gml_Script_collider_gravity_raycast", {position.x, position.y}).ToDouble();
   Utils::InstanceSet(player, "x", position.x);
   Utils::InstanceSet(player, "y", position.y);
@@ -52,7 +51,7 @@ RValue FindLevel(double x, double y)
   return fallback;
 }
 
-void TeleportToMapWorldPosition(RValue &game, const char *x_key, const char *y_key, double x_offset = 0, double y_offset = 0)
+void TeleportToMapWorldPosition(RValue &game, RValue &player, const char *x_key, const char *y_key, double x_offset = 0, double y_offset = 0)
 {
   RValue map = Utils::InstanceGet(game, "mn_map");
   bool menu_open = Utils::GlobalGet("menu_open").ToBoolean();
@@ -71,7 +70,7 @@ void TeleportToMapWorldPosition(RValue &game, const char *x_key, const char *y_k
   map["player_y"] = y;
   if (target_level == Utils::InstanceGet(game, "level_id").ToString())
   {
-    TeleportToPosition(on_level_load_go_to);
+    TeleportToPosition(player, on_level_load_go_to);
     return;
   }
   on_level_load_go = true;
@@ -364,21 +363,21 @@ void KeepFreecam(const RValue &player)
 
 void CheatsTab(bool *open)
 {
+  RValue player = Utils::GetObjectInstance("objPlayer");
   if (on_level_load_go)
   {
-    TeleportToPosition(on_level_load_go_to);
+    TeleportToPosition(player, on_level_load_go_to);
     on_level_load_go = false;
   }
   RValue game = Utils::GetObjectInstance("objGame");
   if (teleport_on_middle_click && yytk->CallBuiltin("mouse_check_button_pressed", {3}))
-    TeleportToMapWorldPosition(game, "mouse_world_x", "mouse_world_y", 380.0);
+    TeleportToMapWorldPosition(game, player, "mouse_world_x", "mouse_world_y", 380.0);
   DoDebugShortcuts(game);
 
   bool debug_menu = Utils::InstanceGet(game, "debug_console").ToBoolean();
   if (yytk->CallBuiltin("keyboard_check_pressed", {192}).ToBoolean())
     Utils::InstanceSet(game, "debug_console", !debug_menu);
 
-  RValue player = Utils::GetObjectInstance("objPlayer");
   if (draw_player_collision && player.ToBoolean())
     DrawPlayerCollision(player);
   if (infinite_jumps)
@@ -425,7 +424,7 @@ void CheatsTab(bool *open)
     ReloadLevel(game);
 
   if (ImGui::Button("Teleport to Map Center"))
-    TeleportToMapWorldPosition(game, "world_x", "world_y");
+    TeleportToMapWorldPosition(game, player, "world_x", "world_y");
   ImGui::Checkbox("Teleport to mouse on Middle Click", &teleport_on_middle_click);
 
   ImGui::Text("Player Variables");
