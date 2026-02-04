@@ -257,7 +257,7 @@ void CreateObject() {
         if (old_inst.ToBoolean()) {
           new_obj_x = Utils::InstanceGet(old_inst, "x").ToDouble();
           new_obj_y = Utils::InstanceGet(old_inst, "y").ToDouble();
-          new_obj_set_z = Utils::InstanceExists(old_inst, "z").ToBoolean();
+          new_obj_set_z = Utils::InstanceExists(old_inst, "z");
           if (new_obj_set_z)
             new_obj_z = Utils::InstanceGet(old_inst, "z").ToDouble();
         }

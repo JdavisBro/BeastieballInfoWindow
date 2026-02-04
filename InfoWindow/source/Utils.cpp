@@ -41,17 +41,17 @@ void Setup()
     yytk->GetNamedRoutinePointer("instance_find", reinterpret_cast<PVOID *>(&instance_find));
 }
 
-RValue InstanceExists(const RValue &instance, const RValue &key)
+bool InstanceExists(const RValue &instance, const RValue &key)
 {
-    return CallBuiltin(variable_instance_exists, {instance, key});
+    return CallBuiltin(variable_instance_exists, {instance, key}).ToBoolean();
 }
-RValue InstanceExists(const RValue &instance, const char *key)
+bool InstanceExists(const RValue &instance, const char *key)
 {
-    return CallBuiltin(variable_instance_exists, {instance, key});
+    return CallBuiltin(variable_instance_exists, {instance, key}).ToBoolean();
 }
-RValue InstanceExists(const RValue &instance, const std::string_view key)
+bool InstanceExists(const RValue &instance, const std::string_view key)
 {
-    return CallBuiltin(variable_instance_exists, {instance, RValue(key)});
+    return CallBuiltin(variable_instance_exists, {instance, RValue(key)}).ToBoolean();
 }
 
 RValue InstanceGet(const RValue &instance, const RValue &key)
@@ -80,17 +80,17 @@ void InstanceSet(const RValue &instance, const std::string_view key, const RValu
     CallBuiltin(variable_instance_set, {instance, RValue(key), value});
 }
 
-RValue GlobalExists(const RValue &key)
+bool GlobalExists(const RValue &key)
 {
-    return CallBuiltin(variable_global_exists, {key});
+    return CallBuiltin(variable_global_exists, {key}).ToBoolean();
 }
-RValue GlobalExists(const char *key)
+bool GlobalExists(const char *key)
 {
-    return CallBuiltin(variable_global_exists, {key});
+    return CallBuiltin(variable_global_exists, {key}).ToBoolean();
 }
-RValue GlobalExists(const std::string_view key)
+bool GlobalExists(const std::string_view key)
 {
-    return CallBuiltin(variable_global_exists, {RValue(key)});
+    return CallBuiltin(variable_global_exists, {RValue(key)}).ToBoolean();
 }
 
 RValue GlobalGet(const RValue &key)

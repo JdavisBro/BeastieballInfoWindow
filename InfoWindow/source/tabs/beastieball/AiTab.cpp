@@ -199,7 +199,7 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
     double new_eval = (*Args[0]).ToDouble();
     double best_eval = tree["eval"].ToDouble();
     RValue favorite_child = tree["children"][(new_eval >= best_eval ? (*Args[1]) : tree["_favorite"]).ToInt32()];
-    if (Utils::InstanceExists(favorite_child, "erratic_result").ToBoolean())
+    if (Utils::InstanceExists(favorite_child, "erratic_result"))
       Utils::InstanceSet(tree, "erratic_result", favorite_child["erratic_result"]);
     else
       DbgPrint("favorite child does not have erratic");

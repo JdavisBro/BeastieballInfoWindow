@@ -24,7 +24,7 @@ bool is_beastieball = false;
 
 void BeastieballCheck()
 {
-	is_beastieball = Utils::GlobalExists("sprite_beastie_ball_impact").ToBoolean();
+	is_beastieball = Utils::GlobalExists("sprite_beastie_ball_impact");
 	if (is_beastieball)
 	{
 		DbgPrint("Beastieball!");

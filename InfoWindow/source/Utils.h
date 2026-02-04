@@ -7,9 +7,9 @@ namespace Utils
 
 void Setup();
 
-RValue InstanceExists(const RValue &instance, const RValue &key);
-RValue InstanceExists(const RValue &instance, const char *key);
-RValue InstanceExists(const RValue &instance, const std::string_view key);
+bool InstanceExists(const RValue &instance, const RValue &key);
+bool InstanceExists(const RValue &instance, const char *key);
+bool InstanceExists(const RValue &instance, const std::string_view key);
 
 RValue InstanceGet(const RValue &instance, const RValue &key);
 RValue InstanceGet(const RValue &instance, const char *key);
@@ -19,9 +19,9 @@ void InstanceSet(const RValue &instance, const RValue &key, const RValue &value)
 void InstanceSet(const RValue &instance, const char *key, const RValue &value);
 void InstanceSet(const RValue &instance, const std::string_view key, const RValue &value);
 
-RValue GlobalExists(const RValue &key);
-RValue GlobalExists(const char *key);
-RValue GlobalExists(const std::string_view key);
+bool GlobalExists(const RValue &key);
+bool GlobalExists(const char *key);
+bool GlobalExists(const std::string_view key);
 
 RValue GlobalGet(const RValue &key);
 RValue GlobalGet(const char *key);
