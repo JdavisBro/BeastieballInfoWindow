@@ -384,13 +384,14 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   else
     NewValue(type, object);
   ImGui::BeginChild("vars");
+  std::vector<RValue *> names_vec = names.ToRefVector();
   for (int i = start_index; i < count; i++)
   {
-    std::string name = use_names ? names[i].ToString() : name_func ? name_func(i, object)
+    RValue key = use_names ? *names_vec[i] : RValue(std::to_string(i));
+    std::string name = use_names ? key.ToString() : name_func ? name_func(i, object)
       : std::to_string(i);
     if (!pane.search.empty() && name.find(pane.search) == -1)
       continue;
-    RValue key = use_names ? names[i] : RValue(name);
     if (hide_dunder && name.starts_with("__"))
       continue;
     RValue value = GetIndex(i, object, key, type);
