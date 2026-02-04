@@ -22,7 +22,7 @@ void LoadFile()
 }
 
 extern bool needs_save = false;
-extern bool save_disbled = true;
+extern bool save_disbled = false;
 
 void SaveFile()
 {
