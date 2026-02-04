@@ -384,6 +384,12 @@ void SelectedBeastie(RValue beastie)
         beastie_attklist[i] = species_attklist_rvalue[selected_copy.attklist[i]];
     }
   }
+  ImGui::SameLine();
+  if (ImGui::Button("Learn All Plays"))
+  {
+    CallStructMethod(beastie, "learn_all_moves", {});
+    CallStructMethod(beastie, "default_moveset", {});
+  }
   ImGui::PopItemWidth();
 
   RValue abilities = species["ability"];
