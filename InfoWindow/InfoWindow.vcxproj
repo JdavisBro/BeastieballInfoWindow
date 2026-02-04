@@ -183,6 +183,7 @@
     <ClCompile Include="source\tabs\beastieball\CheatsTab.cpp" />
     <ClCompile Include="source\tabs\beastieball\MatchTab.cpp" />
     <ClCompile Include="source\Hooks.cpp" />
+    <ClCompile Include="source\Utils.cpp" />
     <ClCompile Include="source\ModuleMain.cpp" />
   </ItemGroup>
   <ItemGroup>
@@ -207,6 +208,7 @@
     <ClInclude Include="source\tabs\beastieball\CheatsTab.h" />
     <ClInclude Include="source\tabs\beastieball\MatchTab.h" />
     <ClInclude Include="source\Hooks.h" />
+    <ClCompile Include="source\Utils.h" />
     <ClInclude Include="source\ModuleMain.h" />
   </ItemGroup>
   <ItemGroup>

@@ -6,24 +6,15 @@ using namespace YYTK;
 #include "imgui/misc/cpp/imgui_stdlib.h"
 #include "../../ModuleMain.h"
 #include "../../Hooks.h"
+#include "../../Utils.h"
 
 #include "AiTab.h"
 
 namespace AiTab {
 
-RValue InstanceGet(const RValue &instance, const char *name)
-{
-  return yytk->CallBuiltin("variable_instance_get", {instance, name});
-}
-
-void InstanceSet(const RValue &instance, const char *name, const RValue &value)
-{
-  yytk->CallBuiltin("variable_instance_set", {instance, name, value});
-}
-
 void Undo(const RValue &game_active)
 {
-  RValue stack = InstanceGet(game_active, "board_snapshots");
+  RValue stack = Utils::InstanceGet(game_active, "board_snapshots");
   while (!yytk->CallBuiltin("ds_stack_empty", {stack}))
   {
     RValue board_snapshot = yytk->CallBuiltin("ds_stack_pop", {stack});
@@ -35,15 +26,15 @@ int FindAi(const RValue &game_active)
 {
   if (!game_active.ToBoolean())
     return -2;
-  RValue ai_choicegraph = InstanceGet(game_active, "ai_choicegraph");
-  RValue selection_mode = InstanceGet(game_active, "selection_mode");
-  bool scene_playing = yytk->CallBuiltin("variable_global_get", {"SCENE_PLAYING"}).ToBoolean();
+  RValue ai_choicegraph = Utils::InstanceGet(game_active, "ai_choicegraph");
+  RValue selection_mode = Utils::InstanceGet(game_active, "selection_mode");
+  bool scene_playing = Utils::GlobalGet("SCENE_PLAYING").ToBoolean();
   if (ai_choicegraph.ToBoolean() || selection_mode.ToInt32() != 0 || scene_playing)
     return -1;
   int found_ai = -1;
   for (int i = 0; i < 2; i += 1)
   {
-    int64_t team_control = InstanceGet(game_active, "teams_data")[i]["control"].ToInt64();
+    int64_t team_control = Utils::InstanceGet(game_active, "teams_data")[i]["control"].ToInt64();
     // team is ai
     if (team_control == 1 || team_control == 2)
     {
@@ -57,7 +48,7 @@ int FindAi(const RValue &game_active)
     }
   }
   // ai not found or player turned.
-  if (found_ai == -1 || InstanceGet(game_active, "teams")[!found_ai]["turned"].ToBoolean())
+  if (found_ai == -1 || Utils::InstanceGet(game_active, "teams")[!found_ai]["turned"].ToBoolean())
   {
     return -1;
   }
@@ -70,10 +61,10 @@ void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
 {
   Undo(game_active);
   yytk->CallGameScript("gml_Script_board_snapshot", {});
-  InstanceSet(game_active, "ai_selecting", found_ai);
+  Utils::InstanceSet(game_active, "ai_selecting", found_ai);
   RValue aitreeElephant = yytk->CallBuiltin("json_parse", {"{\"_\": \"class_aitree\"}"});
   RValue aitree = yytk->CallGameScript("gml_Script_ElephantFromJSON", {aitreeElephant});
-  InstanceSet(game_active, "ai_choicegraph", aitree);
+  Utils::InstanceSet(game_active, "ai_choicegraph", aitree);
   RValue snapshot = yytk->CallGameScript("gml_Script_board_snapshot_save", {false});
   aitree["root_snapshot"] = snapshot;
 }
@@ -86,7 +77,7 @@ void AutoMakeAi(const RValue &game_active)
     player_team = -1;
     return;
   }
-  if (player_team > -1 && InstanceGet(game_active, "teams")[player_team]["turned"].ToBoolean())
+  if (player_team > -1 && Utils::InstanceGet(game_active, "teams")[player_team]["turned"].ToBoolean())
     player_team = -1;
   if (player_team >= 0)
     return;
@@ -106,8 +97,8 @@ void MakeAi(const RValue &game_active)
 
 void DeleteAi(const RValue &game_active)
 {
-  InstanceSet(game_active, "ai_choicegraph", RValue());
-  InstanceSet(game_active, "ai_selecting", -1);
+  Utils::InstanceSet(game_active, "ai_choicegraph", RValue());
+  Utils::InstanceSet(game_active, "ai_selecting", -1);
 }
 
 // MARK: Aitree Storing
@@ -128,7 +119,7 @@ AiBranch AddBranch(const RValue &branch)
 {
   AiBranch branch_rep;
   branch_rep.text = branch["_debug_str"].ToString();
-  branch_rep.erratic = yytk->CallBuiltin("variable_instance_exists", {branch, "erratic_result"}) ? branch["erratic_result"].ToDouble() : 0;
+  branch_rep.erratic = Utils::InstanceExists(branch, "erratic_result") ? branch["erratic_result"].ToDouble() : 0;
   branch_rep.eval = branch["eval"].ToDouble() - branch_rep.erratic;
   branch_rep.sim_count = 0;
   if (branch_rep.eval > max_eval)
@@ -149,7 +140,7 @@ void CreateAiTree(const RValue &game_active)
 {
   if (!game_active.ToBoolean())
     return;
-  RValue ai_choicegraph = InstanceGet(game_active, "ai_choicegraph");
+  RValue ai_choicegraph = Utils::InstanceGet(game_active, "ai_choicegraph");
   if (!ai_choicegraph.ToBoolean())
     return;
   while (!ai_choicegraph["parent"].IsUndefined())
@@ -173,7 +164,7 @@ RValue &AitreeReplay(CInstance *Self, CInstance *Other, RValue &ReturnValue, int
   if (numArgs > 0 && (*Args[0]).ToBoolean() && !replay_saved_tree)
   {
     replay_saved_tree = true;
-    CreateAiTree(yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"}));
+    CreateAiTree(Utils::GlobalGet("GAME_ACTIVE"));
     rigged_for_path = {};
   }
   aitreeReplayOriginal(Self, Other, ReturnValue, numArgs, Args);
@@ -186,9 +177,9 @@ double erratic_result = 0;
 PFUNC_YYGMLScript aiBoardEvalOriginal = nullptr;
 RValue &AiBoardEval(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
-  int32_t ai_selecting = InstanceGet(game_active, "ai_selecting").ToInt32();
-  RValue teams_data = InstanceGet(game_active, "teams_data");
+  RValue game_active = Utils::GlobalGet("GAME_ACTIVE");
+  int32_t ai_selecting = Utils::InstanceGet(game_active, "ai_selecting").ToInt32();
+  RValue teams_data = Utils::InstanceGet(game_active, "teams_data");
   RValue team_ai = teams_data[ai_selecting]["ai"];
 
   erraticness = team_ai["erratic"].ToDouble();
@@ -208,16 +199,16 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
     double new_eval = (*Args[0]).ToDouble();
     double best_eval = tree["eval"].ToDouble();
     RValue favorite_child = tree["children"][(new_eval >= best_eval ? (*Args[1]) : tree["_favorite"]).ToInt32()];
-    if (yytk->CallBuiltin("variable_instance_exists", {favorite_child, "erratic_result"}).ToBoolean())
-      InstanceSet(tree, "erratic_result", favorite_child["erratic_result"]);
+    if (Utils::InstanceExists(favorite_child, "erratic_result").ToBoolean())
+      Utils::InstanceSet(tree, "erratic_result", favorite_child["erratic_result"]);
     else
       DbgPrint("favorite child does not have erratic");
   }
   else if (numArgs == 0 || (*Args[0]).IsUndefined()) // is from board eval
   {
-    RValue game_active = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
-    int32_t ai_selecting = InstanceGet(game_active, "ai_selecting").ToInt32();
-    RValue teams_data = InstanceGet(game_active, "teams_data");
+    RValue game_active = Utils::GlobalGet("GAME_ACTIVE");
+    int32_t ai_selecting = Utils::InstanceGet(game_active, "ai_selecting").ToInt32();
+    RValue teams_data = Utils::InstanceGet(game_active, "teams_data");
     RValue team_ai = teams_data[ai_selecting]["ai"];
 
     erraticness = team_ai["erratic"].ToDouble();
@@ -249,7 +240,7 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
       }
       erratic_result = erraticness * 120 * path_correct;
     }
-    InstanceSet(tree, "erratic_result", erratic_result);
+    Utils::InstanceSet(tree, "erratic_result", erratic_result);
   }
   aitreeSelectionSubmitOriginal(Self, Other, ReturnValue, numArgs, Args);
   return ReturnValue;
@@ -404,7 +395,7 @@ bool auto_create_ai = true;
 // MARK: Tab Stuff
 void AiTab(bool *open)
 {
-  RValue game_active = yytk->CallBuiltin("variable_global_get", {"GAME_ACTIVE"});
+  RValue game_active = Utils::GlobalGet("GAME_ACTIVE");
   replay_saved_tree = false;
   if (auto_create_ai)
     AutoMakeAi(game_active);

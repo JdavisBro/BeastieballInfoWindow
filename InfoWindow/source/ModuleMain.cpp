@@ -11,6 +11,7 @@ using namespace YYTK;
 
 #include "Hooks.h"
 #include "ImguiWindow.h"
+#include "Utils.h"
 #include "tabs/ObjectTab.h"
 #include "tabs/beastieball/AiTab.h"
 #include "tabs/beastieball/MatchTab.h"
@@ -23,7 +24,7 @@ bool is_beastieball = false;
 
 void BeastieballCheck()
 {
-	is_beastieball = yytk->CallBuiltin("variable_global_exists", {"sprite_beastie_ball_impact"}).ToBoolean();
+	is_beastieball = Utils::GlobalExists("sprite_beastie_ball_impact").ToBoolean();
 	if (is_beastieball)
 	{
 		DbgPrint("Beastieball!");
@@ -165,7 +166,7 @@ void CodeCallback(FWCodeEvent &Event)
 	// remove unfocus low fps.
 	if (is_beastieball)
 	{
-		RValue settings = yytk->CallBuiltin("variable_global_get", {"SETTINGS"});
+		RValue settings = Utils::GlobalGet("SETTINGS");
 		if (!settings.IsUndefined())
 			yytk->CallBuiltin("game_set_speed", {settings["framerate"], 0});
 	}
