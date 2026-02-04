@@ -13,12 +13,12 @@ namespace AiTab {
 
 RValue InstanceGet(const RValue &instance, const char *name)
 {
-  return yytk->CallBuiltin("variable_instance_get", {instance, RValue(name)});
+  return yytk->CallBuiltin("variable_instance_get", {instance, name});
 }
 
 void InstanceSet(const RValue &instance, const char *name, const RValue &value)
 {
-  yytk->CallBuiltin("variable_instance_set", {instance, RValue(name), value});
+  yytk->CallBuiltin("variable_instance_set", {instance, name, value});
 }
 
 void Undo(const RValue &game_active)
@@ -70,11 +70,11 @@ void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
 {
   Undo(game_active);
   yytk->CallGameScript("gml_Script_board_snapshot", {});
-  InstanceSet(game_active, "ai_selecting", RValue(found_ai));
+  InstanceSet(game_active, "ai_selecting", found_ai);
   RValue aitreeElephant = yytk->CallBuiltin("json_parse", {"{\"_\": \"class_aitree\"}"});
   RValue aitree = yytk->CallGameScript("gml_Script_ElephantFromJSON", {aitreeElephant});
   InstanceSet(game_active, "ai_choicegraph", aitree);
-  RValue snapshot = yytk->CallGameScript("gml_Script_board_snapshot_save", {RValue(false)});
+  RValue snapshot = yytk->CallGameScript("gml_Script_board_snapshot_save", {false});
   aitree["root_snapshot"] = snapshot;
 }
 
@@ -110,7 +110,7 @@ void DeleteAi()
 {
   RValue game_active = yytk->CallBuiltin("variable_global_get", {RValue("GAME_ACTIVE")});
   InstanceSet(game_active, "ai_choicegraph", RValue());
-  InstanceSet(game_active, "ai_selecting", RValue(-1));
+  InstanceSet(game_active, "ai_selecting", -1);
 }
 
 // MARK: Aitree Storing
@@ -225,7 +225,7 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
     RValue team_ai = teams_data[ai_selecting]["ai"];
 
     erraticness = team_ai["erratic"].ToDouble();
-    erratic_result = yytk->CallBuiltin("random", {RValue(120)}).ToDouble() * erraticness;
+    erratic_result = yytk->CallBuiltin("random", {120}).ToDouble() * erraticness;
 
     if (!rigged_for_path.empty())
     {
@@ -253,7 +253,7 @@ RValue &AitreeSelectionSubmit(CInstance *Self, CInstance *Other, RValue &ReturnV
       }
       erratic_result = erraticness * 120 * path_correct;
     }
-    InstanceSet(tree, "erratic_result", RValue(erratic_result));
+    InstanceSet(tree, "erratic_result", erratic_result);
   }
   aitreeSelectionSubmitOriginal(Self, Other, ReturnValue, numArgs, Args);
   return ReturnValue;
@@ -391,7 +391,7 @@ void SimulateTree()
     size_t favorite = 0;
     for (int end_i = 0; end_i < end_count; end_i++)
     {
-      double eval = ends[end_i]->eval + yytk->CallBuiltin("random", {RValue(120)}).ToDouble() * erraticness;
+      double eval = ends[end_i]->eval + yytk->CallBuiltin("random", {120}).ToDouble() * erraticness;
       if (eval > sim_max_eval)
       {
         sim_max_eval = eval;

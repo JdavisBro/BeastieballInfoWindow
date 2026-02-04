@@ -62,7 +62,7 @@ GameplayState SaveState(RValue &game)
     case VALUE_REAL:
     case VALUE_STRING:
     case VALUE_BOOL:
-      state.normal_values[key] = RValue(value);
+      state.normal_values[key] = value;
       break;
     case VALUE_OBJECT:
       if (yytk->CallBuiltin("is_method", {value}))

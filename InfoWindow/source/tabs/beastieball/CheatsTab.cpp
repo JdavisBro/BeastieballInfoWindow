@@ -22,7 +22,7 @@ struct Vec2
 RValue GetObjectInstance(const char *object_name)
 {
   RValue asset = yytk->CallBuiltin("asset_get_index", {object_name});
-  return yytk->CallBuiltin("instance_find", {asset, RValue(0)});
+  return yytk->CallBuiltin("instance_find", {asset, 0});
 }
 
 void TeleportToPosition(Vec2 position)
@@ -131,17 +131,17 @@ void ReloadLevel(RValue &game)
   yytk->CallGameScript("gml_Script_data_update_player_pos", {});
   yytk->CallGameScript("gml_Script_SceneClear", {});
   RValue level_id = yytk->CallBuiltin("variable_instance_get", {game, "level_id"});
-  yytk->CallGameScript("gml_Script_level_goto", {level_id, RValue(true)});
+  yytk->CallGameScript("gml_Script_level_goto", {level_id, true});
 }
 
 void SetGroupRenders(RValue &group)
 {
-  RValue default_renders = yytk->CallBuiltin("variable_instance_get", {group, RValue("DEFAULT_RENDERS")});
+  RValue default_renders = yytk->CallBuiltin("variable_instance_get", {group, "DEFAULT_RENDERS"});
   RValue collider = group["collider"];
   if (default_renders.IsUndefined())
   {
     RValue renders = group["renders"];
-    yytk->CallBuiltin("variable_instance_set", {group, RValue("DEFAULT_RENDERS"), renders});
+    yytk->CallBuiltin("variable_instance_set", {group, "DEFAULT_RENDERS", renders});
     default_renders = renders;
   }
   group["renders"] = view_collision ? collider : default_renders;
@@ -149,7 +149,7 @@ void SetGroupRenders(RValue &group)
 
 void ToggleCollision(RValue &game)
 {
-  RValue browser = yytk->CallBuiltin("variable_global_get", {RValue("__browser")});
+  RValue browser = yytk->CallBuiltin("variable_global_get", {"__browser"});
   std::map<std::string, RValue> models = browser["content"]["models"].ToMap();
   for (auto model_pair : models)
   {
@@ -198,10 +198,10 @@ RValue &BuildBakedModels(CInstance *Self, CInstance *Other, RValue &ReturnValue,
 {
   if (view_collision)
   {
-    std::vector<RValue> models = yytk->CallBuiltin("variable_instance_get", {Self, RValue("models_array")}).ToVector();
+    std::vector<RValue> models = yytk->CallBuiltin("variable_instance_get", {Self, "models_array"}).ToVector();
     for (RValue model : models)
     {
-      model["effect_layer"] = RValue(0);
+      model["effect_layer"] = 0;
     }
   }
   buildBakedModelsOriginal(Self, Other, ReturnValue, numArgs, Args);
@@ -388,10 +388,10 @@ void CheatsTab(bool *open)
     DrawPlayerCollision(player);
   if (infinite_jumps)
   {
-    if (yytk->CallBuiltin("keyboard_check_pressed", {RValue(32.0)}).ToBoolean())
+    if (yytk->CallBuiltin("keyboard_check_pressed", {32.0}).ToBoolean())
     {
-      RValue jump_speed = yytk->CallBuiltin("variable_instance_get", {player, RValue("jump_speed")});
-      yytk->CallBuiltin("variable_instance_set", {player, RValue("z_speed"), jump_speed});
+      RValue jump_speed = yytk->CallBuiltin("variable_instance_get", {player, "jump_speed"});
+      yytk->CallBuiltin("variable_instance_set", {player, "z_speed", jump_speed});
     }
   }
 
@@ -400,8 +400,8 @@ void CheatsTab(bool *open)
 
   if (camera_always_follow_player)
   {
-    RValue player_z = yytk->CallBuiltin("variable_instance_get", {player, RValue("z")});
-    yytk->CallBuiltin("variable_instance_set", {player, RValue("z_last"), player_z});
+    RValue player_z = yytk->CallBuiltin("variable_instance_get", {player, "z"});
+    yytk->CallBuiltin("variable_instance_set", {player, "z_last", player_z});
   }
 
   if (!ImGui::Begin("Cheats", open, ImGuiWindowFlags_NoFocusOnAppearing))

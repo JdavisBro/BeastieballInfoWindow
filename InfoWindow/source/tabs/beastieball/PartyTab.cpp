@@ -220,21 +220,21 @@ void DrawRelationships(ImGuiWindowFlags window_flags)
     ImGui::PopItemWidth();
     ImGui::SameLine();
     if (ImGui::Button("Set"))
-      SetRelationship(selected_copy.pid, relationship.otherPid, "pow", RValue(relationship.pow));
+      SetRelationship(selected_copy.pid, relationship.otherPid, "pow", relationship.pow);
     double friendlyChanged = relationship.friendly - relationship.prevFriendly;
     ImGui::Text("Friendly: %.2f • ± %.2f", relationship.friendly, friendlyChanged);
     ImGui::SameLine();
     if (ImGui::Button("Swap##Friendly"))
     {
       relationship.friendly = relationship.friendly == 0 ? 1 : -relationship.friendly;
-      SetRelationship(selected_copy.pid, relationship.otherPid, "friendly", RValue(relationship.friendly));
+      SetRelationship(selected_copy.pid, relationship.otherPid, "friendly", relationship.friendly);
     }
     ImGui::Text(relationship.hot ? "Spicy" : "Not Spicy");
     ImGui::SameLine();
     if (ImGui::Button("Swap##Hot"))
     {
       relationship.hot = !relationship.hot;
-      SetRelationship(selected_copy.pid, relationship.otherPid, "hot", RValue(relationship.hot));
+      SetRelationship(selected_copy.pid, relationship.otherPid, "hot", relationship.hot);
     }
     ImGui::Text("Type: %s • %s", GetRelationshipType(relationship), relationship.pow >= 350 ? "Formed" : "Not Formed");
     ImGui::Text("Attacks: %i : %i", relationship.myAttacks, relationship.otherAttacks);

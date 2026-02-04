@@ -23,7 +23,7 @@ bool is_beastieball = false;
 
 void BeastieballCheck()
 {
-	is_beastieball = yytk->CallBuiltin("variable_global_exists", {RValue("sprite_beastie_ball_impact")}).ToBoolean();
+	is_beastieball = yytk->CallBuiltin("variable_global_exists", {"sprite_beastie_ball_impact"}).ToBoolean();
 	if (is_beastieball)
 	{
 		DbgPrint("Beastieball!");
@@ -165,9 +165,9 @@ void CodeCallback(FWCodeEvent &Event)
 	// remove unfocus low fps.
 	if (is_beastieball)
 	{
-		RValue settings = yytk->CallBuiltin("variable_global_get", {RValue("SETTINGS")});
+		RValue settings = yytk->CallBuiltin("variable_global_get", {"SETTINGS"});
 		if (!settings.IsUndefined())
-			yytk->CallBuiltin("game_set_speed", {settings["framerate"], RValue(0)});
+			yytk->CallBuiltin("game_set_speed", {settings["framerate"], 0});
 	}
 }
 
