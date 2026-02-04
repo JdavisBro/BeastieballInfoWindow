@@ -94,7 +94,7 @@ void LoadState(RValue &game, GameplayState &state)
   yytk->CallBuiltin("variable_instance_set", {game, "ai_choicegraph", RValue()});
   yytk->CallBuiltin("variable_instance_set", {game, "ai_selecting", -1});
   if (auto_create_ai_after_load)
-    AiTab::MakeAi(); // from AiTab
+    AiTab::MakeAi(game); // from AiTab
 }
 
 int selected = 0;
