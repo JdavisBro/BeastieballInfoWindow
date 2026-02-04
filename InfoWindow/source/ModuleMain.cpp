@@ -104,6 +104,8 @@ void PopupMenu(ImGuiID dockspace)
 
 bool has_drawn = false;
 
+std::filesystem::path save_dir = "mod_data/";
+
 void CodeCallback(FWCodeEvent &Event)
 {
 	auto [Self, Other, Code, ArgCount, Arg] = Event.Arguments();
@@ -133,6 +135,8 @@ void CodeCallback(FWCodeEvent &Event)
 	static bool window_exists = false;
 	if (!window_exists)
 	{
+		if (!std::filesystem::is_directory(save_dir))
+			std::filesystem::create_directory(save_dir);
 		if (!ImguiCreateWindow())
 		{
 			window_exists = true;
