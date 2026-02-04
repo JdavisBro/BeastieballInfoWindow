@@ -293,6 +293,11 @@ void DoStatSection(bool training, RValue &beastie, bool &sport, RValue &sport_be
   ImGui::EndTabItem();
 }
 
+RValue CallStructMethod(const RValue &object, const char *method, std::vector<RValue> args)
+{
+  return yytk->CallBuiltin("method_call", {yytk->CallBuiltin("method", {object, object[method]}), RValue(args)});
+}
+
 bool editing = false;
 
 void SelectedBeastie(RValue beastie)
@@ -412,6 +417,52 @@ void SelectedBeastie(RValue beastie)
   ImGui::EndChild();
 }
 
+std::string new_beastie_species = "shroom1";
+double level = 5;
+bool learn_all_plays = false;
+
+std::string BeastieSpeciesToString(const RValue &species)
+{
+  return std::format("{} - {}", species["number"].ToString(), species["name"].ToString());
+}
+
+void NewBeastie(RValue &party)
+{
+  RValue char_dic = yytk->CallBuiltin("variable_global_get", {"char_dic"});
+  RValue beastie_template = yytk->CallBuiltin("ds_map_find_value", {char_dic, RValue(new_beastie_species)});
+  std::vector<RValue> char_dic_values = yytk->CallBuiltin("ds_map_values_to_array", {char_dic}).ToVector();
+  int beastie_count = char_dic_values.size();
+  std::map<int, RValue> beastie_map;
+  for (RValue beastie : char_dic_values)
+    beastie_map[beastie["number"].ToInt32()] = beastie;
+  if (ImGui::BeginCombo("Species", BeastieSpeciesToString(beastie_template).c_str()))
+  {
+    for (int i = 1; i <= beastie_count; i++)
+    {
+      RValue beastie = beastie_map[i];
+      std::string beastie_id = beastie["id"].ToString();
+      if (ImGui::Selectable(BeastieSpeciesToString(beastie).c_str(), new_beastie_species == beastie_id)) {
+        new_beastie_species = beastie_id;
+        beastie_template = beastie;
+      }
+    }
+    ImGui::EndCombo();
+  }
+  ImGui::InputDouble("Level", &level, 1., 10., "%.0f");
+  ImGui::Checkbox("Learn All Plays", &learn_all_plays);
+  if (ImGui::Button("Create"))
+  {
+    DbgPrint(beastie_template["generate"].ToCString());
+    RValue beastie = CallStructMethod(beastie_template, "generate", {level, 0});
+    if (learn_all_plays)
+    {
+      CallStructMethod(beastie, "learn_all_moves", {});
+      CallStructMethod(beastie, "default_moveset", {});
+    }
+    yytk->CallGameScript("gml_Script_char_new_register", {beastie});
+  }
+}
+
 bool DrawParty()
 {
   RValue data = yytk->CallBuiltin("variable_global_get", {"data"});
@@ -424,7 +475,7 @@ bool DrawParty()
   if (!party_count)
     return false;
 
-  ImGui::BeginChild("select", ImVec2(0, 140), ImGuiChildFlags_Borders);
+  ImGui::BeginChild("select", ImVec2(0, 160), ImGuiChildFlags_Borders);
   static std::string selected = "";
   RValue selected_beastie;
   for (int i = 0; i < party_count; i++)
@@ -443,12 +494,15 @@ bool DrawParty()
     if (is_selected)
       selected_beastie = beastie;
   }
-  ImGui::EndChild();
-
-  if (selected_beastie.ToBoolean())
-  {
-    SelectedBeastie(selected_beastie);
+  if (ImGui::Selectable("Add Beastie", selected == "new")) {
+    selected = "new";
+    selected_beastie = RValue();
   }
+  ImGui::EndChild();
+  if (selected_beastie.ToBoolean())
+    SelectedBeastie(selected_beastie);
+  else if (selected == "new")
+    NewBeastie(party);
   return true;
 }
 
