@@ -19,6 +19,7 @@ using namespace YYTK;
 #include "tabs/beastieball/MatchTab.h"
 #include "tabs/beastieball/PartyTab.h"
 #include "tabs/beastieball/CheatsTab.h"
+#include "tabs/beastieball/GachaTab.h"
 
 extern YYTKInterface *yytk = nullptr;
 
@@ -47,6 +48,7 @@ void DoHooks()
 	{
 		AiTab::AiHooks();
 		CheatsTab::CheatsHooks();
+		GachaTab::GachaHooks();
 	}
 	// make hooks
 	CreateHooks();
@@ -76,6 +78,7 @@ TabInfo tabs[] = {
 	{"Match Tab", true, true, MatchTab::MatchTab, "MatchTab", MatchTab::Store},
 	{"Party Tab", true, true, PartyTab::PartyTab, "PartyTab", PartyTab::Store},
 	{"Cheats Tab", true, true, CheatsTab::CheatsTab, "CheatsTab", CheatsTab::Store},
+	{"Gacha Tab", true, true, GachaTab::GachaTab, "GachaTab", GachaTab::Store},
 };
 const int tab_count = sizeof(tabs) / sizeof(TabInfo);
 
@@ -137,6 +140,9 @@ void CodeCallback(FWCodeEvent &Event)
 	Event.Call(Self, Other, Code, ArgCount, Arg);
 
 	std::string name = Code->GetName();
+
+	if (name == "gml_Object_objGame_Draw_64")
+		GachaTab::DrawGachaMenu();
 
 	if (is_beastieball)
 	{
