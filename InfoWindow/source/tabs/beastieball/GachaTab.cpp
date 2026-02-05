@@ -160,12 +160,12 @@ GachaType gachas[] = {
       {"possum", "good", 0.85, 0.78, -1, 1},
       {"moth", "good", 0.66, 0.84, 1, 1, true},
       {"platypus2", "spike", 0.3, 0.9, 1, 1},
-      {"lyrebird", "spike", 0.15, 1, 1, 1, true},
+      {"lyrebird", "spike", 0.15, 0.995, 1, 1, true},
       {"dog", "ready", 0.225, 1.0, 1, 1, true},
       {"cheerleader", "good", 0.45, 0.92, 1.3, 1.3, true},
-      {"daredevil", "spike", 0.7, 0.95, -1.2, 1.2, true},
+      {"daredevil", "spike", 0.7, 1.02, -1.2, 1.2, true},
       {"kangaroo", "menu", 0.9, 0.93, -1, 1, true},
-      {"bestie", "good", 0.63, 0.98, -1.1, 1.1, true},
+      {"bestie", "good", 0.55, 0.98, -1.1, 1.1, true},
       {"dragonfly", "volley", 0.89, 0.3, 1, 1, true},
     },
     {
@@ -320,7 +320,7 @@ void EditGachaMenu()
 
   size_t sprites_count = gacha.sprites.size();
   if (editing_sprites >= sprites_count) editing_sprites = 0;
-  if (ImGui::BeginCombo("Text", std::format("{} - {}", editing_sprites, gacha.sprites[editing_sprites].sprite).c_str())) {
+  if (ImGui::BeginCombo("Sprite", std::format("{} - {}", editing_sprites, gacha.sprites[editing_sprites].sprite).c_str())) {
     for (int i = 0; i < sprites_count; i++)
       if (ImGui::Selectable(std::format("{} - {}", i, gacha.sprites[i].sprite).c_str()))
         editing_sprites = i;
@@ -388,7 +388,14 @@ void GachaHooks()
 
 void OpenMenu()
 {
+  if (Utils::ObjectInstanceExists("objInit") || Utils::ObjectInstanceExists("objTitle"))
+    return;
+  RValue current_menu = Utils::GlobalGet("menu_tab_open");
   RValue menu = Utils::GlobalGet("mn_gacha");
+  if (Utils::GlobalGet("menu_open").ToBoolean() && current_menu.ToBoolean() && current_menu.m_Object == menu.m_Object) {
+    yytk->CallGameScript("gml_Script_menu_level_out", {});
+    return;
+  }
   RValue game = Utils::GetObjectInstance("objGame");
   Utils::InstanceSet(game, "pause_manual", true);
   yytk->CallGameScript("gml_Script_menu_level_in", {menu});
