@@ -295,11 +295,6 @@ void DoStatSection(bool training, RValue &beastie, bool &sport, RValue &sport_be
   ImGui::EndTabItem();
 }
 
-RValue CallStructMethod(const RValue &object, const char *method, std::vector<RValue> args)
-{
-  return yytk->CallBuiltin("method_call", {yytk->CallBuiltin("method", {object, object[method]}), RValue(args)});
-}
-
 bool editing = false;
 
 void SelectedBeastie(RValue beastie)
@@ -389,8 +384,8 @@ void SelectedBeastie(RValue beastie)
   ImGui::SameLine();
   if (ImGui::Button("Learn All Plays"))
   {
-    CallStructMethod(beastie, "learn_all_moves", {});
-    CallStructMethod(beastie, "default_moveset", {});
+    Utils::CallStructMethod(beastie, "learn_all_moves", {});
+    Utils::CallStructMethod(beastie, "default_moveset", {});
   }
   ImGui::PopItemWidth();
 
@@ -461,11 +456,11 @@ void NewBeastie(RValue &party)
   if (ImGui::Button("Create"))
   {
     DbgPrint(beastie_template["generate"].ToCString());
-    RValue beastie = CallStructMethod(beastie_template, "generate", {level, 0});
+    RValue beastie = Utils::CallStructMethod(beastie_template, "generate", {level, 0});
     if (learn_all_plays)
     {
-      CallStructMethod(beastie, "learn_all_moves", {});
-      CallStructMethod(beastie, "default_moveset", {});
+      Utils::CallStructMethod(beastie, "learn_all_moves", {});
+      Utils::CallStructMethod(beastie, "default_moveset", {});
     }
     yytk->CallGameScript("gml_Script_char_new_register", {beastie});
   }

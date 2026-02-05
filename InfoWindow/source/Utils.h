@@ -36,4 +36,6 @@ RValue GetObjectInstance(const char *object_name, int index);
 
 bool ObjectInstanceExists(const char *object_name);
 
+RValue CallStructMethod(const RValue &object, const char *method, std::vector<RValue> args);
+
 }

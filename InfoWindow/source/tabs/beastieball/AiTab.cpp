@@ -366,10 +366,16 @@ void SimCollectEnds(std::vector<AiBranch *> &ends, AiBranch *branch)
   }
 }
 
+TRoutine random = nullptr;
+
 void SimulateTree()
 {
   if (aitree.children.empty())
     return;
+  if (!random)
+    yytk->GetNamedRoutinePointer("random", reinterpret_cast<PVOID *>(&random));
+  RValue random_max = RValue(120);
+  RValue return_value;
   std::vector<AiBranch *> ends;
   SimCollectEnds(ends, &aitree);
   size_t end_count = ends.size();
@@ -379,7 +385,8 @@ void SimulateTree()
     size_t favorite = 0;
     for (int end_i = 0; end_i < end_count; end_i++)
     {
-      double eval = ends[end_i]->eval + yytk->CallBuiltin("random", {120}).ToDouble() * erraticness;
+      random(return_value, nullptr, nullptr, 1, &random_max);
+      double eval = ends[end_i]->eval + return_value.ToDouble() * erraticness;
       if (eval > sim_max_eval)
       {
         sim_max_eval = eval;
