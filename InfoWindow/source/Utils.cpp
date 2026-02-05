@@ -135,4 +135,10 @@ bool ObjectInstanceExists(const char *object_name)
     return CallBuiltin(instance_exists, {CallBuiltin(asset_get_index, {object_name})}).ToBoolean();
 }
 
+RValue CallStructMethod(const RValue &object, const char *method, std::vector<RValue> args)
+{
+    return yytk->CallBuiltin("method_call", {yytk->CallBuiltin("method", {object, object[method]}), RValue(args)});
+}
+
+
 }
