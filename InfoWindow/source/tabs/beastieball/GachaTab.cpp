@@ -132,9 +132,42 @@ struct SpritePos {
   bool front_of_beastie = true;
 };
 
-struct Vec2 {
+struct PullButtonPos {
   double x;
   double y;
+  int selection_x;
+  int selection_y;
+};
+
+struct BeastieDrop {
+  const char *family;
+  double weight = 1;
+};
+
+struct ItemDrop {
+  const char *item;
+  int rarity = 3;
+  double weight = 3 / (double)rarity * 2;
+};
+
+std::vector<ItemDrop> default_item_drops = {
+  {"heal_b", 1}, {"heal_c", 2},
+  {"status_b", 2}, {"heal_max", 3},
+  {"status_a", 1},
+  {"sell1", 2}, {"sell2", 3},
+  {"train_ba", 1}, {"train_ha", 1}, {"train_ma", 1},
+  {"train_bd", 1}, {"train_hd", 1}, {"train_md", 1},
+  {"train_level", 2}, {"train_reset", 3}, {"train_trait", 3},
+  {"trainspray_a", 1}, {"trainspray_b", 2}, {"trainspray_c", 3},
+};
+
+struct DropRates {
+  std::vector<BeastieDrop> drops_5;
+  std::vector<BeastieDrop> drops_4;
+  std::vector<ItemDrop> drops_other;
+  double weight_5 = 0.02;
+  double weight_4 = 0.2;
+  double weight_other = 0.75;
 };
 
 struct GachaType {
@@ -142,8 +175,12 @@ struct GachaType {
   std::vector<TextPos> text;
   std::vector<BeastiePos> beastie_layout;
   std::vector<SpritePos> sprites;
-  Vec2 button_pos[2];
+  PullButtonPos button_pos[3];
+  int down_x_pos;
+  DropRates rates;
 };
+
+#define scentered "[fa_center][fa_middle]"
 
 GachaType gachas[] = {
   {
@@ -152,8 +189,9 @@ GachaType gachas[] = {
       {"Beasts of", 0.23, 0.4, 1.5},
       {"AMBERSTONE", 0.3, 0.5, 1.5, 0x57a2ff},
       {"Servace", 0.74, 0.29, 1.2, 0xFFFFFF, true},
-      {"[fa_center][fa_middle][scale,0.5][sprIcon,3][sprIcon,3][sprIcon,3][sprIcon,3][sprIcon,3]", 0.736, 0.34, 1, 0xFFFFFF, true, true},
+      {scentered"[scale,0.5][sprIcon,3][sprIcon,3][sprIcon,3][sprIcon,3][sprIcon,3]", 0.736, 0.34, 1, 0xFFFFFF, true, true},
       {"#1 Spiker", 0.737, 0.375, 0.5, 0xFFFFFF, true},
+      {"Drop Rate Up!", 0.808, 0.24, 0.4, 0xFFFFFF, true},
     },
     {
       {"serval", "volley", 0.46, 0.76, 1.2, 1.2, true},
@@ -171,7 +209,13 @@ GachaType gachas[] = {
     {
       {"sprBall", 2, 0.39, 0.2, 0.7, 0.7, 0, 1.5},
     },
-    { { 0.45, 0.825 }, {0.45, 0.925} },
+    { { 0.45, 0.825, 1, 1 }, {0.45, 0.925, 1, 2}, {0.14, 0.27, 0, 1} },
+    1,
+    {
+      { {"serval1", 3}, {"cheerleader1"}, {"daredevil1"}, {"bestie"} },
+      { {"platypus1"}, {"moth1"}, {"possum1"}, {"lyrebird1"}, {"dog1"}, {"kangaroo1"}, {"dragonfly"}, {"disruptor"} },
+      default_item_drops,
+    },
   },
   {
     "Starters",
@@ -182,7 +226,9 @@ GachaType gachas[] = {
       {"frog", "good", 0.75, 0.75, 1.5, 1.5},
     },
     { },
-    { { 0.2, 0.2}, { 0.2, 0.3 } },
+    { { 0.2, 0.2, 0, 1 }, { 0.5, 0.2, 1, 1 }, { 0.2, 0.4, 0, 2 } },
+    -1,
+    {}
   },
 };
 int gacha_count = 2;
@@ -229,28 +275,191 @@ void DrawSprites(std::vector<SpritePos> &sprites, bool after_beasties)
   }
 }
 
-bool DrawPullButton(const char *text, Vec2 &pos)
+RValue Scribble(const RValue &text)
 {
-  return yytk->CallGameScript("gml_Script_draw_text_button", {
-    yytk->CallGameScript("gml_Script_canvas_x", {pos.x, pos.y}), yytk->CallGameScript("gml_Script_canvas_y", {pos.y}), yytk->CallGameScript("gml_Script_scribble", {text})}).ToBoolean();
+  return yytk->CallGameScript("gml_Script_scribble", {RValue(text)});
 }
 
+double DrawMenuButton(double x, double y, const RValue &text, double selection_x, double selection_y, const RValue &menu, bool selected, bool hover_button = false)
+{
+  // args: x, y, text, scalex, scaley, color, ?, selection x, selection y, menu, selected, ?, ?, ?, ?
+  return yytk->CallGameScript("gml_Script_draw_text_button_menu", {
+      yytk->CallGameScript("gml_Script_canvas_x", {x, y}), yytk->CallGameScript("gml_Script_canvas_y", {y}), text, 1, 0.25, selected ? Utils::GlobalGet("menu_color")[5] : 0, 0, selection_x, selection_y, menu
+    }).ToBoolean() && (hover_button || yytk->CallGameScript("gml_Script_buttonlist_released_affirmative_raw", {}).ToBoolean());
+}
+
+bool DrawPullButton(const char *text, PullButtonPos &pos, const RValue &menu)
+{
+  return DrawMenuButton(pos.x, pos.y, Scribble(text), pos.selection_x, pos.selection_y, menu, false);
+  // return yytk->CallGameScript("gml_Script_draw_text_button", {
+  //   yytk->CallGameScript("gml_Script_canvas_x", {pos.x, pos.y}), yytk->CallGameScript("gml_Script_canvas_y", {pos.y}), yytk->CallGameScript("gml_Script_scribble", {text})}).ToBoolean();
+}
+
+void HandleInput(const RValue &menu)
+{
+  GachaType &gacha = gachas[gacha_open];
+  int new_x = menu["selectX"].ToInt32();
+  int new_y = menu["selectY"].ToInt32();
+  if (yytk->CallGameScript("gml_Script_menu_pressed_right", {}).ToBoolean()) new_x += 1;
+  else if (yytk->CallGameScript("gml_Script_menu_pressed_left", {}).ToBoolean()) new_x -= 1;
+  if (yytk->CallGameScript("gml_Script_menu_pressed_down", {}).ToBoolean()) {
+    if (new_y == 0 && gacha.down_x_pos != -1) new_x = gacha.down_x_pos;
+    new_y += 1;
+  }
+  else if (yytk->CallGameScript("gml_Script_menu_pressed_up", {}).ToBoolean()) new_y -= 1;
+
+  int min_x = 0;
+  int max_x = 0;
+  int max_y = 0;
+  for (int i = 0; i < 3; i++)
+  {
+    PullButtonPos pos = gacha.button_pos[i];
+    if (pos.selection_x > max_x) max_x = pos.selection_x;
+    if (pos.selection_x < min_x) min_x = pos.selection_x;
+    if (pos.selection_y > max_y) max_y = pos.selection_y;
+  }
+
+  if (new_y < 0) new_y = 0;
+  else if (new_y > max_y) new_y = max_y;
+  else {
+    if (new_y == 0) {
+      if (new_x < 0) new_x = 0;
+      if (new_x >= gacha_count) new_x = gacha_count - 1;
+    }
+    else {
+      if (new_x > max_x) new_x = max_x;
+      if (new_x < min_x) new_x = min_x;
+      PullButtonPos *match = nullptr;
+      for (int i = 0; i < 3; i++)
+      {
+        PullButtonPos *pos = &gacha.button_pos[i];
+        if (pos->selection_x == new_x && pos->selection_y == new_y) { match = nullptr; break; }
+        if (pos->selection_x == new_x || pos->selection_y == new_y) match = pos;
+      }
+      if (match) {
+        new_x = match->selection_x;
+        new_y = match->selection_y;
+      }
+    }
+  }
+  Utils::InstanceSet(menu, "selectX", new_x);
+  Utils::InstanceSet(menu, "selectY", new_y);
+}
+
+void DrawTextPgram(double x, double y, const RValue &text, double scale_x = 1, double scale_y = 0.25, double color = 0)
+{
+  yytk->CallGameScript("gml_Script_draw_text_pgram", {yytk->CallGameScript("gml_Script_canvas_x", {x, y}), yytk->CallGameScript("gml_Script_canvas_y", {y}), text, scale_x, scale_y, color});
+}
+
+double max_gacha_scroll = 1.0;
+
+double GachaRatesHandleInput(RValue &menu)
+{
+  double y_pos = menu["selectX"].ToDouble();
+  if (yytk->CallGameScript("gml_Script_input_axis_y", {}).ToDouble() < 0)
+    y_pos -= 0.03;
+  if (yytk->CallGameScript("gml_Script_input_axis_y", {}).ToDouble() > 0)
+    y_pos += 0.03;
+  if (yytk->CallGameScript("gml_Script_mouse_wheel_down", {}).ToBoolean())
+    y_pos += 0.08;
+  if (yytk->CallGameScript("gml_Script_mouse_wheel_up", {}).ToBoolean())
+    y_pos -= 0.08;
+  y_pos = max(min(y_pos, max_gacha_scroll), 0);
+  menu["selectX"] = y_pos;
+  return y_pos;
+}
+
+const double rates_text_height = 0.1;
+const double rates_display_min = -rates_text_height / 2;
+const double rates_display_max = 1.0 + rates_text_height / 2;
+
+struct DropRate {
+  std::string name;
+  double y_pos;
+  int rarity;
+  double weight;
+};
+
+void DrawGachaRatesMenu(RValue &current_menu)
+{
+  RValue menu = Utils::GlobalGet("mn_gacha_rates");
+  if (menu.m_Object != current_menu.m_Object) return;
+  double y_pos_start = GachaRatesHandleInput(menu);
+  double y_pos = 0 - y_pos_start;
+  GachaType &gacha = gachas[gacha_open];
+  RValue item_dic = Utils::GlobalGet("item_dic");
+  std::vector<DropRate> rates;
+  double total_weight = 0;
+  RValue char_dic = Utils::GlobalGet("char_dic");
+  y_pos += rates_text_height;
+  DrawTextPgram(0.5, y_pos, std::format("Drop Rates for {}", gacha.name).c_str());
+  for (BeastieDrop &drop : gacha.rates.drops_5) {
+    y_pos += rates_text_height;
+    double weight = drop.weight * gacha.rates.weight_5;
+    total_weight += weight;
+    if (y_pos < rates_display_min) continue;
+    if (y_pos > rates_display_max) continue;
+    RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, drop.family});
+    rates.push_back({beastie["name"].ToString(), y_pos, 5, weight});
+  }
+  for (BeastieDrop &drop : gacha.rates.drops_4) {
+    y_pos += rates_text_height;
+    double weight = drop.weight * gacha.rates.weight_4;
+    total_weight += weight;
+    if (y_pos < rates_display_min) continue;
+    if (y_pos > rates_display_max) continue;
+    RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, drop.family});
+    rates.push_back({beastie["name"].ToString(), y_pos, 4, weight});
+  }
+  for (int rarity = 3; rarity > 0; rarity--) {
+    for (ItemDrop &drop : gacha.rates.drops_other)
+    {
+      if (drop.rarity == rarity) {
+        y_pos += rates_text_height;
+        double weight = drop.weight * gacha.rates.weight_other;
+        total_weight += weight;
+        if (y_pos < rates_display_min) continue;
+        if (y_pos > rates_display_max) continue;
+        RValue item = yytk->CallBuiltin("ds_map_find_value", {item_dic, drop.item});
+        rates.push_back({item["name"].ToString(), y_pos, rarity, weight});
+      }
+    }
+  }
+  max_gacha_scroll = y_pos_start + y_pos - 0.8;
+  for (DropRate rate : rates) {
+    DrawTextPgram(0.5, rate.y_pos, Scribble(RValue(std::format(scentered"{} - {}[sprIcon,3] - {:.5f}%", rate.name, rate.rarity, rate.weight / total_weight * 100))));
+  }
+}
+
+void OpenGachaRates()
+{
+  RValue menu = Utils::GlobalGet("mn_gacha_rates");
+  RValue game = Utils::GetObjectInstance("objGame");
+  Utils::InstanceSet(game, "pause_manual", true);
+  yytk->CallGameScript("gml_Script_menu_level_in", {menu});
+  menu["selectX"] = 0.0;
+}
 
 void DrawGachaMenu()
 {
   if (!Utils::GlobalGet("menu_open").ToBoolean())
     return;
   RValue menu = Utils::GlobalGet("mn_gacha");
-  RValue game = Utils::GetObjectInstance("objGame");
   RValue current_menu = Utils::GlobalGet("menu_tab_open");
-  if (!current_menu.ToBoolean() || current_menu.m_Object != menu.m_Object) return;
+  if (!current_menu.ToBoolean()) return;
+  if (current_menu.m_Object != menu.m_Object) {
+    DrawGachaRatesMenu(current_menu);
+    return;
+  }
+  HandleInput(menu);
   double header_dist = 1. / double(gacha_count + 1);
   double x_pos = 0;
   for (int i = 0; i < gacha_count; i++) {
     GachaType &gacha = gachas[i];
     x_pos += header_dist;
-    if (yytk->CallGameScript("gml_Script_draw_text_button", {yytk->CallGameScript("gml_Script_canvas_x", {x_pos, 0.075}), yytk->CallGameScript("gml_Script_canvas_y", {0.075}), gacha.name}).ToBoolean())
+    if (DrawMenuButton(x_pos, 0.075, gacha.name, i, 0, menu, gacha_open == i))
       gacha_open = i;
+    // if (yytk->CallGameScript("gml_Script_draw_text_button", {yytk->CallGameScript("gml_Script_canvas_x", {x_pos, 0.075}), yytk->CallGameScript("gml_Script_canvas_y", {0.075}), gacha.name}).ToBoolean())
     if (gacha_open == i) {
       DrawSprites(gacha.sprites, false);
       DrawBeastieLayout(gacha.beastie_layout, false);
@@ -258,8 +467,10 @@ void DrawGachaMenu()
       DrawBeastieLayout(gacha.beastie_layout, true);
       DrawTextPoses(gacha.text, true);
       DrawSprites(gacha.sprites, true);
-      DrawPullButton("[fa_center][fa_middle]Recruit 1 [sprItems,6]x1", gacha.button_pos[0]);
-      DrawPullButton("[fa_center][fa_middle]Recruit 10 [sprItems,6]x10", gacha.button_pos[1]);
+      DrawPullButton(scentered"Recruit 1 [sprItems,6]x1", gacha.button_pos[0], menu);
+      DrawPullButton(scentered"Recruit 10 [sprItems,6]x10", gacha.button_pos[1], menu);
+      if (DrawPullButton(scentered"[scale,0.75]View Drop Rates", gacha.button_pos[2], menu))
+        OpenGachaRates();
     }
   }
 }
@@ -292,11 +503,11 @@ void EditGachaMenu()
   }
   ImGui::BeginChild("beastieedit", {0, 0}, ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders);
   BeastiePos &beastie = gacha.beastie_layout[editing_beastie];
-  ImGui::InputDouble("X", &beastie.x, 0.01, 0.1);
-  ImGui::InputDouble("Y", &beastie.y, 0.01, 0.1);
-  ImGui::InputDouble("X Scale", &beastie.x_scale, 0.01, 0.1);
-  ImGui::InputDouble("Y Scale", &beastie.y_scale, 0.01, 0.1);
-  ImGui::InputDouble("Rotation", &beastie.rotation, 1.0, 10.0);
+  ImGui::InputDouble("X", &beastie.x, 0.01, 0.1, "%f");
+  ImGui::InputDouble("Y", &beastie.y, 0.01, 0.1, "%f");
+  ImGui::InputDouble("X Scale", &beastie.x_scale, 0.01, 0.1, "%f");
+  ImGui::InputDouble("Y Scale", &beastie.y_scale, 0.01, 0.1, "%f");
+  ImGui::InputDouble("Rotation", &beastie.rotation, 1.0, 10.0, "%f");
   ImGui::Checkbox("In front of text", &beastie.front_of_text);
   ImGui::EndChild();
 
@@ -311,9 +522,9 @@ void EditGachaMenu()
   ImGui::BeginChild("textedit", {0, 0}, ImGuiChildFlags_AutoResizeY | ImGuiChildFlags_Borders);
   TextPos &text = gacha.text[editing_text];
   ImGui::Text(text.text);
-  ImGui::InputDouble("X", &text.x, 0.01, 0.1);
-  ImGui::InputDouble("Y", &text.y, 0.01, 0.1);
-  ImGui::InputDouble("Scale", &text.scale, 0.01, 0.1);
+  ImGui::InputDouble("X", &text.x, 0.01, 0.1, "%f");
+  ImGui::InputDouble("Y", &text.y, 0.01, 0.1, "%f");
+  ImGui::InputDouble("Scale", &text.scale, 0.01, 0.1, "%f");
   ImGui::Checkbox("In front of beasties", &text.front_of_beasties);
   ImGui::Checkbox("Scribble", &text.scribble);
   ImGui::EndChild();
@@ -366,6 +577,54 @@ void MenuSetup()
   RValue menu = yytk->CallBuiltin("json_parse", {menu_string});
   menu["commands"] = yytk->CallBuiltin("ds_list_create", {});
   Utils::GlobalSet("mn_gacha", menu);
+  RValue menu2 = yytk->CallBuiltin("json_parse", {menu_string});
+  menu2["commands"] = yytk->CallBuiltin("ds_list_create", {});
+  Utils::GlobalSet("mn_gacha_rates", menu2);
+}
+
+std::map<std::string, int> jersey_value = {
+  {"jersey", 1}, {"jersey2", 2}, {"jersey3", 3}, {"jersey4", 4}, {"jersey5", 5},
+};
+const int jersey_price = 160;
+
+bool price_setup_done = false;
+
+void PricesSetup()
+{
+  RValue item_dic = Utils::GlobalGet("item_dic");
+  if (yytk->CallBuiltin("ds_map_empty", {item_dic})) return;
+  for (auto pair = jersey_value.begin(); pair != jersey_value.end(); pair++)
+  {
+    RValue item = yytk->CallBuiltin("ds_map_find_value", {item_dic, RValue(pair->first)});
+    item["value"] = pair->second * jersey_price;
+    if (pair->second > 1) {
+      item["desc"] = std::format("Gives you {} Jerseys to use to recruit Beasties in the [sprMainmenu,21]Recruit menu.", pair->second).c_str();
+    }
+    else {
+      item["desc"] = "Used to recruit a Beastie in the [sprMainmenu,21]Recruit menu.";
+    }
+  }
+  price_setup_done = true;
+}
+
+void ReduceJerseys()
+{
+  int jersey_count = 0;
+  RValue inventory = Utils::GlobalGet("inventory");
+  for (auto pair = jersey_value.begin(); pair != jersey_value.end(); pair++)
+  {
+    if (pair->second == 1) continue;
+    if (Utils::InstanceExists(inventory, pair->first)) {
+      RValue item = Utils::InstanceGet(inventory, pair->first);
+      int count = item["num"].ToInt32();
+      if (count) {
+        jersey_count += pair->second * count;
+        yytk->CallGameScript("gml_Script_item_delete", {RValue(pair->first), count});
+      }
+    }
+  }
+  if (jersey_count)
+    yytk->CallGameScript("gml_Script_item_get", {"jersey", jersey_count});
 }
 
 void GachaHooks()
@@ -390,10 +649,12 @@ void OpenMenu()
 {
   if (Utils::ObjectInstanceExists("objInit") || Utils::ObjectInstanceExists("objTitle"))
     return;
+  bool menu_open = Utils::GlobalGet("menu_open").ToBoolean();
   RValue current_menu = Utils::GlobalGet("menu_tab_open");
   RValue menu = Utils::GlobalGet("mn_gacha");
-  if (Utils::GlobalGet("menu_open").ToBoolean() && current_menu.ToBoolean() && current_menu.m_Object == menu.m_Object) {
-    yytk->CallGameScript("gml_Script_menu_level_out", {});
+  if (menu_open) {
+    if (current_menu.ToBoolean() && current_menu.m_Object == menu.m_Object)
+      yytk->CallGameScript("gml_Script_menu_level_out", {});
     return;
   }
   RValue game = Utils::GetObjectInstance("objGame");
@@ -405,6 +666,12 @@ void OpenMenu()
 
 void GachaTab(bool *open)
 {
+  if (!price_setup_done) {
+    PricesSetup();
+  }
+  else {
+    ReduceJerseys();
+  }
   if (yytk->CallBuiltin("keyboard_check_pressed", {114.0}).ToBoolean())
     OpenMenu();
   if (!ImGui::Begin("Gacha", open, ImGuiWindowFlags_NoFocusOnAppearing))
