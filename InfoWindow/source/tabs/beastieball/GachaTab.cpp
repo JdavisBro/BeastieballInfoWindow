@@ -406,8 +406,7 @@ void DrawGachaRatesMenu(RValue &current_menu)
     y_pos += rates_text_height;
     double weight = drop.weight * gacha.rates.weight_5;
     total_weight += weight;
-    if (y_pos < rates_display_min) continue;
-    if (y_pos > rates_display_max) continue;
+    if (y_pos < rates_display_min || y_pos > rates_display_max) continue;
     RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, drop.family});
     rates.push_back({beastie["name"].ToString(), y_pos, 5, weight});
   }
@@ -415,8 +414,7 @@ void DrawGachaRatesMenu(RValue &current_menu)
     y_pos += rates_text_height;
     double weight = drop.weight * gacha.rates.weight_4;
     total_weight += weight;
-    if (y_pos < rates_display_min) continue;
-    if (y_pos > rates_display_max) continue;
+    if (y_pos < rates_display_min || y_pos > rates_display_max) continue;
     RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, drop.family});
     rates.push_back({beastie["name"].ToString(), y_pos, 4, weight});
   }
@@ -427,8 +425,7 @@ void DrawGachaRatesMenu(RValue &current_menu)
         y_pos += rates_text_height;
         double weight = drop.weight * gacha.rates.weight_other;
         total_weight += weight;
-        if (y_pos < rates_display_min) continue;
-        if (y_pos > rates_display_max) continue;
+        if (y_pos < rates_display_min || y_pos > rates_display_max) continue;
         RValue item = yytk->CallBuiltin("ds_map_find_value", {item_dic, drop.item});
         rates.push_back({item["name"].ToString(), y_pos, rarity, weight});
       }
