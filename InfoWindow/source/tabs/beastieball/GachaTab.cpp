@@ -346,27 +346,35 @@ void HandleInput(const RValue &menu)
   Utils::InstanceSet(menu, "selectY", new_y);
 }
 
-void DrawTextPgram(double x, double y, const RValue &text, double scale_x = 1, double scale_y = 0.25, double color = 0)
+void DrawTextPgram(double x, double y, const RValue &text, double scale_x = 1, double scale_y = 0.25, double color = 0, double align = 0)
 {
-  yytk->CallGameScript("gml_Script_draw_text_pgram", {yytk->CallGameScript("gml_Script_canvas_x", {x, y}), yytk->CallGameScript("gml_Script_canvas_y", {y}), text, scale_x, scale_y, color});
+  yytk->CallGameScript("gml_Script_draw_text_pgram", {yytk->CallGameScript("gml_Script_canvas_x", {x, y}), yytk->CallGameScript("gml_Script_canvas_y", {y}), text, scale_x, scale_y, color, align});
+}
+
+void DrawControls()
+{
+  RValue game = Utils::GetObjectInstance("objGame");
+  RValue command = Utils::InstanceGet(game, "menu_command_scribble");
+  double x = yytk->CallBuiltin("display_get_gui_width", {}).ToDouble() - 10;
+  double y = yytk->CallBuiltin("display_get_gui_height", {}).ToDouble() - Utils::CallStructMethod(command, "get_height", {}).ToDouble() / 2;
+  yytk->CallGameScript("gml_Script_draw_text_pgram_edge", {x, y, command, 1, 0.25, 0, 2});
 }
 
 double max_gacha_scroll = 1.0;
 
-double GachaRatesHandleInput(RValue &menu)
+void GachaRatesHandleInput(RValue &menu)
 {
   double y_pos = menu["selectX"].ToDouble();
+  y_pos = max(min(y_pos, max_gacha_scroll), 0);
   if (yytk->CallGameScript("gml_Script_input_axis_y", {}).ToDouble() < 0)
     y_pos -= 0.03;
   if (yytk->CallGameScript("gml_Script_input_axis_y", {}).ToDouble() > 0)
     y_pos += 0.03;
-  if (yytk->CallGameScript("gml_Script_mouse_wheel_down", {}).ToBoolean())
+  if (yytk->CallBuiltin("mouse_wheel_down", {}).ToBoolean())
     y_pos += 0.08;
-  if (yytk->CallGameScript("gml_Script_mouse_wheel_up", {}).ToBoolean())
+  if (yytk->CallBuiltin("mouse_wheel_up", {}).ToBoolean())
     y_pos -= 0.08;
-  y_pos = max(min(y_pos, max_gacha_scroll), 0);
   menu["selectX"] = y_pos;
-  return y_pos;
 }
 
 const double rates_text_height = 0.1;
@@ -384,7 +392,8 @@ void DrawGachaRatesMenu(RValue &current_menu)
 {
   RValue menu = Utils::GlobalGet("mn_gacha_rates");
   if (menu.m_Object != current_menu.m_Object) return;
-  double y_pos_start = GachaRatesHandleInput(menu);
+  GachaRatesHandleInput(menu);
+  double y_pos_start = menu["selectX_anim"].ToDouble();
   double y_pos = 0 - y_pos_start;
   GachaType &gacha = gachas[gacha_open];
   RValue item_dic = Utils::GlobalGet("item_dic");
@@ -425,10 +434,11 @@ void DrawGachaRatesMenu(RValue &current_menu)
       }
     }
   }
-  max_gacha_scroll = y_pos_start + y_pos - 0.8;
+  max_gacha_scroll = y_pos_start + y_pos - 1 + rates_text_height * 1.5;
   for (DropRate rate : rates) {
     DrawTextPgram(0.5, rate.y_pos, Scribble(RValue(std::format(scentered"{} - {}[sprIcon,3] - {:.5f}%", rate.name, rate.rarity, rate.weight / total_weight * 100))));
   }
+  DrawControls();
 }
 
 void OpenGachaRates()
@@ -459,7 +469,6 @@ void DrawGachaMenu()
     x_pos += header_dist;
     if (DrawMenuButton(x_pos, 0.075, gacha.name, i, 0, menu, gacha_open == i))
       gacha_open = i;
-    // if (yytk->CallGameScript("gml_Script_draw_text_button", {yytk->CallGameScript("gml_Script_canvas_x", {x_pos, 0.075}), yytk->CallGameScript("gml_Script_canvas_y", {0.075}), gacha.name}).ToBoolean())
     if (gacha_open == i) {
       DrawSprites(gacha.sprites, false);
       DrawBeastieLayout(gacha.beastie_layout, false);
@@ -471,8 +480,10 @@ void DrawGachaMenu()
       DrawPullButton(scentered"Recruit 10 [sprItems,6]x10", gacha.button_pos[1], menu);
       if (DrawPullButton(scentered"[scale,0.75]View Drop Rates", gacha.button_pos[2], menu))
         OpenGachaRates();
+      DrawTextPgram(0.98, 0.035, Scribble(RValue(std::format(scentered"[scale,0.5][sprItems,6] {}", yytk->CallGameScript("gml_Script_item_count", {"jersey"}).ToString()))), 1, 0.25, 0, 2);
     }
   }
+  DrawControls();
 }
 
 int editing_gacha = 0;
