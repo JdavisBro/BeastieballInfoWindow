@@ -58,6 +58,21 @@ RValue &FeedbackSubmit(CInstance *Self, CInstance *Other, RValue &ReturnValue, i
   return ReturnValue;
 }
 
+PFUNC_YYGMLScript tameAdjust = nullptr;
+RValue &TameAdjust(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  // tameAdjust(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+PFUNC_YYGMLScript evAdjust = nullptr;
+RValue &EvAdjust(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  int bad_index = yytk->CallBuiltin("array_get_index", {*Args[0], "train"}).ToInt32();
+  if (bad_index >= 0)
+    yytk->CallBuiltin("array_delete", {*Args[0], bad_index, 2});
+  evAdjust(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
 
 TRoutine file_exists = nullptr;
 void FileExists(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
@@ -232,6 +247,132 @@ GachaType gachas[] = {
   },
 };
 int gacha_count = 2;
+
+enum GachaResultType {
+  GACHA_BEASTIE,
+  GACHA_ITEM,
+};
+
+
+struct GachaResultBeastie {
+  std::string pid;
+  bool rarermorph;
+};
+
+struct GachaResultItem {
+  std::string id;
+};
+
+struct GachaResult {
+  GachaResultType type;
+  int rarity;
+  GachaResultBeastie beastie;
+  GachaResultItem item;
+};
+
+const char *coaching_types[] = {
+    "ba_r", "ha_r", "ma_r",
+    "bd_r", "hd_r", "md_r",
+};
+
+void SetBeastieCoachStats(const RValue &beastie)
+{
+  double duplicates = min(6, Utils::InstanceExists(beastie, "duplicates") ? Utils::InstanceGet(beastie, "duplicates").ToDouble() : 0);
+  for (const char *type : coaching_types)
+    Utils::InstanceSet(beastie, type, duplicates / 6);
+}
+
+bool IsBeastieMatch(const char *family, const RValue &beastie, const RValue &char_dic)
+{
+  if (!beastie.ToBoolean())
+    return false;
+  RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie["specie"]});
+  double duplicates = Utils::InstanceExists(beastie, "duplicates") ? Utils::InstanceGet(beastie, "duplicates").ToDouble() : 0;
+  if (species["family"].ToString() == family && duplicates < 6) {
+    Utils::InstanceSet(beastie, "duplicates", duplicates + 1);
+    SetBeastieCoachStats(beastie);
+    return true;
+  }
+  return false;
+}
+
+RValue CreateBeastie(const char *family)
+{
+  RValue char_dic = Utils::GlobalGet("char_dic");
+  // check if species already exists without max coached
+  std::vector<RValue> party = Utils::GlobalGet("team_party").ToVector();
+  for (RValue &beastie : party)
+    if (IsBeastieMatch(family, beastie, char_dic)) return beastie;
+  RValue registry = Utils::GlobalGet("team_registry");
+  std::vector<RValue> registry_keys = yytk->CallBuiltin("variable_instance_get_names", {registry}).ToVector();
+  for (RValue &pid : registry_keys)
+    if (IsBeastieMatch(family, registry[pid.ToString()], char_dic))
+      return registry[pid.ToString()];
+  RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, family});
+  RValue beastie = Utils::CallStructMethod(species, "generate", {5, 1});
+  Utils::InstanceSet(beastie, "duplicates", 0);
+  SetBeastieCoachStats(beastie);
+  yytk->CallGameScript("gml_Script_char_new_register", {beastie, 1});
+  return beastie;
+}
+
+std::vector<GachaResult> DoGachaPull(GachaType &gacha, int pull_count)
+{
+  std::vector<GachaResult> results;
+  results.resize(pull_count);
+  for (int i = 0; i < pull_count; i++) {
+    GachaResult *result = results.data() + i;
+    double rng = yytk->CallBuiltin("random", {1}).ToDouble();
+    int rarity = 3;
+    double weight = gacha.rates.weight_5;
+    if (rng <= weight) rarity = 5;
+    else {
+      weight += gacha.rates.weight_4;
+      if (rng <= weight) rarity = 4;
+    }
+    switch (rarity) {
+    case 5:
+    case 4: {
+      result->type = GACHA_BEASTIE;
+      result->rarity = rarity;
+      std::vector<BeastieDrop> &drops = rarity == 5 ? gacha.rates.drops_5 : gacha.rates.drops_4;
+      double weight = 0;
+      for (BeastieDrop &drop : drops)
+        weight += drop.weight;
+      double rng = yytk->CallBuiltin("random", {weight}).ToDouble();
+      weight = 0;
+      for (BeastieDrop &drop : drops) {
+        weight += drop.weight;
+        if (rng <= weight) {
+          RValue beastie = CreateBeastie(drop.family);
+          result->beastie = GachaResultBeastie(beastie["pid"].ToString(), floor(beastie["color"][0].ToDouble()) == 1);
+          break;
+        }
+      }
+      break;
+    }
+    case 3: {
+      result->type = GACHA_ITEM;
+      std::vector<ItemDrop> &drops = gacha.rates.drops_other;
+      double weight = 0;
+      for (ItemDrop &drop : drops)
+        weight += drop.weight;
+      double rng = yytk->CallBuiltin("random", {weight}).ToDouble();
+      weight = 0;
+      for (ItemDrop &drop : drops) {
+        weight += drop.weight;
+        if (rng <= weight) {
+          yytk->CallGameScript("gml_Script_item_get", {drop.item});
+          result->item = {drop.item};
+          result->rarity = drop.rarity;
+          break;
+        }
+      }
+    }
+    }
+  }
+  return results;
+}
 
 int gacha_open = 0;
 
@@ -445,6 +586,7 @@ void OpenGachaRates()
   Utils::InstanceSet(game, "pause_manual", true);
   yytk->CallGameScript("gml_Script_menu_level_in", {menu});
   menu["selectX"] = 0.0;
+  menu["selectX_anim"] = 0.0;
 }
 
 void DrawGachaMenu()
@@ -473,8 +615,18 @@ void DrawGachaMenu()
       DrawBeastieLayout(gacha.beastie_layout, true);
       DrawTextPoses(gacha.text, true);
       DrawSprites(gacha.sprites, true);
-      DrawPullButton(scentered"Recruit 1 [sprItems,6]x1", gacha.button_pos[0], menu);
-      DrawPullButton(scentered"Recruit 10 [sprItems,6]x10", gacha.button_pos[1], menu);
+      if (DrawPullButton(scentered"Recruit 1 [sprItems,6]x1", gacha.button_pos[0], menu)) {
+        std::vector<GachaResult> results = DoGachaPull(gacha, 1);
+        for (GachaResult &result : results) {
+          DbgPrint("%i, %i, %s", result.type, result.rarity, result.type == GACHA_BEASTIE ? result.beastie.pid.c_str() : result.item.id.c_str());
+        }
+      }
+      if (DrawPullButton(scentered"Recruit 10 [sprItems,6]x10", gacha.button_pos[1], menu)) {
+        std::vector<GachaResult> results = DoGachaPull(gacha, 10);
+        for (GachaResult &result : results) {
+          DbgPrint("%i, %i, %s", result.type, result.rarity, result.type == GACHA_BEASTIE ? result.beastie.pid.c_str() : result.item.id.c_str());
+        }
+      }
       if (DrawPullButton(scentered"[scale,0.75]View Drop Rates", gacha.button_pos[2], menu))
         OpenGachaRates();
       DrawTextPgram(0.98, 0.035, Scribble(RValue(std::format(scentered"[scale,0.5][sprItems,6] {}", yytk->CallGameScript("gml_Script_item_count", {"jersey"}).ToString()))), 1, 0.25, 0, 2);
@@ -560,12 +712,6 @@ void EditGachaMenu()
   }
 }
 
-TRoutine part_system_drawit = nullptr;
-void PartSystemDrawit(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
-{
-  part_system_drawit(Result, Self, Other, numArgs, Args);
-}
-
 const char *menu_string = R"({
   "name": "Gacha", "open": 0,
   "selectX": 0, "selectY": 0,
@@ -642,12 +788,12 @@ void GachaHooks()
   RequestHook(NULL, "gml_Script_feedback_submit", "IW savedata_feedback_submit", FeedbackSubmit, reinterpret_cast<PVOID *>(&feedbackSubmit));
   RequestHook(NULL, "gml_Script_file_read_string", "IW file_read_string", FileReadString, reinterpret_cast<PVOID *>(&fileReadString));
   RequestHook(NULL, "gml_Script_file_write_string", "IW file_write_string", FileWriteString, reinterpret_cast<PVOID *>(&fileWriteString));
+  RequestHook("gml_Script_tame_adjust", "@class_beastie", "IW tame_adjust", TameAdjust, reinterpret_cast<PVOID *>(&tameAdjust));
+  RequestHook("gml_Script_ev_adjust", "@class_beastie", "IW ev_adjust", EvAdjust, reinterpret_cast<PVOID *>(&evAdjust));
 
   BuiltinHook("IW file_exists", "file_exists", FileExists, reinterpret_cast<PVOID *>(&file_exists));
   BuiltinHook("IW file_delete", "file_delete", FileDelete, reinterpret_cast<PVOID *>(&file_delete));
   BuiltinHook("IW file_copy", "file_copy", FileCopy, reinterpret_cast<PVOID *>(&file_copy));
-
-  BuiltinHook("IW part_system_drawit", "part_system_drawit", PartSystemDrawit, reinterpret_cast<PVOID *>(&part_system_drawit));
 
   // Setup Menus
   MenuSetup();
