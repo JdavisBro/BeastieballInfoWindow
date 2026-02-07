@@ -591,7 +591,11 @@ void DrawGachaMenu()
     return;
   RValue menu = Utils::GlobalGet("mn_gacha");
   RValue current_menu = Utils::GlobalGet("menu_tab_open");
-  if (!current_menu.ToBoolean()) return;
+  if (!current_menu.ToBoolean())
+    return;
+  RValue game = Utils::GetObjectInstance("objGame");
+  if (!(Utils::InstanceGet(game, "menu_open_fx").ToDouble() > 0 || Utils::InstanceGet(game, "phone_fx").ToDouble() > 0))
+    return;
   if (current_menu.m_Object != menu.m_Object) {
     DrawGachaRatesMenu(current_menu);
     return;
@@ -805,6 +809,9 @@ void OpenMenu()
       yytk->CallGameScript("gml_Script_menu_level_out", {});
     return;
   }
+  yytk->CallGameScript("gml_Script_container_play", {"ui_menu_sub_open"});
+  yytk->CallGameScript("gml_Script_buttonlist_affirmative_reset_release", {});
+  yytk->CallGameScript("gml_Script_io_clear_all", {});
   RValue game = Utils::GetObjectInstance("objGame");
   Utils::InstanceSet(game, "pause_manual", true);
   yytk->CallGameScript("gml_Script_menu_level_in", {menu});
@@ -829,7 +836,6 @@ void GachaTab(bool *open)
   }
   if (ImGui::Button("Open Menu"))
     OpenMenu();
-  DrawGachaMenu();
   EditGachaMenu();
   ImGui::End();
 }
