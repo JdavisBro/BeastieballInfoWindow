@@ -434,15 +434,15 @@ void NewBeastie(RValue &party)
   RValue char_dic = Utils::GlobalGet("char_dic");
   RValue beastie_template = yytk->CallBuiltin("ds_map_find_value", {char_dic, RValue(new_beastie_species)});
   std::vector<RValue> char_dic_values = yytk->CallBuiltin("ds_map_values_to_array", {char_dic}).ToVector();
-  int beastie_count = char_dic_values.size();
+  size_t beastie_count = char_dic_values.size();
   std::map<int, RValue> beastie_map;
   for (RValue beastie : char_dic_values)
     beastie_map[beastie["number"].ToInt32()] = beastie;
   if (ImGui::BeginCombo("Species", BeastieSpeciesToString(beastie_template).c_str()))
   {
-    for (int i = 1; i <= beastie_count; i++)
+    for (size_t i = 1; i <= beastie_count; i++)
     {
-      RValue beastie = beastie_map[i];
+      RValue beastie = beastie_map[(int)i];
       std::string beastie_id = beastie["id"].ToString();
       if (ImGui::Selectable(BeastieSpeciesToString(beastie).c_str(), new_beastie_species == beastie_id)) {
         new_beastie_species = beastie_id;

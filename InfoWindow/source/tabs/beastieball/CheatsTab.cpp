@@ -366,8 +366,19 @@ void KeepFreecam(const RValue &player)
   Utils::InstanceSet(scenemanager, "camera_projection_mode", (keep_freecam && !freecam) ? 3 : old_proj_mode);
 }
 
+bool auto_load = false;
+bool was_init = true;
+
 void CheatsTab(bool *open)
 {
+  if (was_init && !Utils::ObjectInstanceExists("objInit")) {
+    was_init = false;
+    if (auto_load) {
+      yytk->CallGameScript("gml_Script_savedata_load", {});
+      yytk->CallGameScript("gml_Script_data_load_level", {});
+      yytk->CallGameScript("gml_Script_menu_level_out_all", {});
+    }
+  }
   RValue player = Utils::GetObjectInstance("objPlayer");
   if (on_level_load_go)
   {
@@ -454,6 +465,8 @@ void CheatsTab(bool *open)
     yytk->CallGameScript("gml_Script_data_load_level", {});
     yytk->CallGameScript("gml_Script_menu_level_out_all", {});
   }
+  ImGui::SameLine();
+  ImGui::Checkbox("Load last save on startup", &auto_load);
   SaveTable(slot);
   if (prev_slot != slot)
     Utils::GlobalSet("SAVE_SLOT", slot);
@@ -465,6 +478,7 @@ void CheatsTab(bool *open)
 
 void Store()
 {
+  Storage::Store("auto_load", &auto_load);
   Storage::Store("debug_shortcuts", &debug_shortcuts);
   Storage::Store("infinite_jumps", &infinite_jumps);
   Storage::Store("camera_always_follow_player", &camera_always_follow_player);
