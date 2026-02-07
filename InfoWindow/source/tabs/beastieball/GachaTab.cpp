@@ -694,7 +694,7 @@ void DrawGachaRatesMenu(RValue &current_menu)
         total_weight += weight;
         if (y_pos < rates_display_min || y_pos > rates_display_max) continue;
         RValue item = yytk->CallBuiltin("ds_map_find_value", {item_dic, drop.item});
-        rates.push_back({item["name"].ToString(), y_pos, rarity, weight});
+        rates.push_back({std::format("[sprItems,{}]{}", item["img"].ToString(), item["name"].ToString()), y_pos, rarity, weight});
       }
     }
   }
