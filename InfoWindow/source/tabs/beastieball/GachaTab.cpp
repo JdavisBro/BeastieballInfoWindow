@@ -79,6 +79,17 @@ void FileCopy(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RV
 
 // MARK: Other Hooks
 
+TRoutine keyboard_check_pressed = nullptr;
+void KeyboardCheckPressed(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
+{
+  if (Args[0].ToDouble() == 119) { // f8 key
+    Result = RValue(false);
+  }
+  else {
+    keyboard_check_pressed(Result, Self, Other, numArgs, Args);
+  }
+}
+
 PFUNC_YYGMLScript feedbackSubmit = nullptr;
 RValue &FeedbackSubmit(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
@@ -917,6 +928,7 @@ void GachaHooks()
   BuiltinHook("IW file_exists", "file_exists", FileExists, reinterpret_cast<PVOID *>(&file_exists));
   BuiltinHook("IW file_delete", "file_delete", FileDelete, reinterpret_cast<PVOID *>(&file_delete));
   BuiltinHook("IW file_copy", "file_copy", FileCopy, reinterpret_cast<PVOID *>(&file_copy));
+  BuiltinHook("IW keyboard_check_pressed", "keyboard_check_pressed", KeyboardCheckPressed, reinterpret_cast<PVOID *>(&keyboard_check_pressed));
 
   // Setup Menus
   MenuSetup();
@@ -951,6 +963,7 @@ void OpenMenu()
 
 void GachaTab(bool *open)
 {
+  Utils::GlobalSet("HIDE_FEEDBACK", true);
   if (!other_setup_done) {
     OtherSetup();
   }
