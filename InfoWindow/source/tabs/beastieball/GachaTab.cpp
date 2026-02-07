@@ -21,6 +21,14 @@ bool is_backup = false;
 
 std::vector<RValue> val;
 
+std::string GetFilename(std::string name)
+{
+  if (name.starts_with("save") || name.starts_with("backup_save")) {
+    return "gacha/" + name;
+  }
+  return name;
+}
+
 void SetFilename(RValue **name_rvalue)
 {
   std::string name = (*name_rvalue)->ToString();
@@ -50,22 +58,23 @@ RValue &FileWriteString(CInstance *Self, CInstance *Other, RValue &ReturnValue, 
 TRoutine file_exists = nullptr;
 void FileExists(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
 {
+  std::vector<RValue> args = {Args[0]};
+  RValue *args_ptr = args.data();
   SetFilename(&Args);
   file_exists(Result, Self, Other, numArgs, Args);
 }
+
 TRoutine file_delete = nullptr;
 void FileDelete(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
 {
   SetFilename(&Args);
-  file_exists(Result, Self, Other, numArgs, Args);
+  file_delete(Result, Self, Other, numArgs, Args);
 }
 TRoutine file_copy = nullptr;
 void FileCopy(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
 {
-  SetFilename(&Args);
-  RValue *second = (Args + 1);
-  SetFilename(&second);
-  file_exists(Result, Self, Other, numArgs, Args);
+  std::vector<RValue> args = {RValue(GetFilename(Args[0].ToString())), RValue(GetFilename(Args[1].ToString()))};
+  file_copy(Result, Self, Other, numArgs, args.data());
 }
 
 // MARK: Other Hooks
@@ -252,7 +261,8 @@ enum GachaResultType {
 
 struct GachaResultBeastie {
   std::string pid;
-  bool rarermorph;
+  bool raremorph;
+  int metamorph = 0;
 };
 
 struct GachaResultItem {
@@ -266,54 +276,152 @@ struct GachaResult {
   GachaResultItem item;
 };
 
+double GetBeastieDuplicates(const RValue &beastie)
+{
+  double duplicates = floor(beastie["ba_r"].ToDouble() * 6);
+  return min(6, duplicates);
+}
+
 const char *coaching_types[] = {
     "ba_r", "ha_r", "ma_r",
     "bd_r", "hd_r", "md_r",
 };
-
-void SetBeastieCoachStats(const RValue &beastie)
-{
-  double duplicates = min(6, Utils::InstanceExists(beastie, "duplicates") ? Utils::InstanceGet(beastie, "duplicates").ToDouble() : 0);
-  for (const char *type : coaching_types)
-    Utils::InstanceSet(beastie, type, duplicates / 6);
-}
 
 bool IsBeastieMatch(const char *family, const RValue &beastie, const RValue &char_dic)
 {
   if (!beastie.ToBoolean())
     return false;
   RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie["specie"]});
-  double duplicates = Utils::InstanceExists(beastie, "duplicates") ? Utils::InstanceGet(beastie, "duplicates").ToDouble() : 0;
-  if (species["family"].ToString() == family && duplicates < 6) {
-    Utils::InstanceSet(beastie, "duplicates", duplicates + 1);
-    SetBeastieCoachStats(beastie);
+  double duplicates = GetBeastieDuplicates(beastie);
+  bool hidden = species["hidden"].ToBoolean();
+  if ((!hidden && species["family"].ToString() == family) || (hidden && species["id"].ToString() == family) && duplicates < 6)
     return true;
-  }
   return false;
 }
 
-RValue CreateBeastie(const char *family)
+std::map<std::string, std::vector<std::string>> metamorph_lines = {
+  {"cassowary1", {"cassowary1", "cassowary2", "cassowary"}},
+  {"frog1", {"frog1", "frog2", "frog"}},
+  {"bilby1", {"bilby1", "bilby2", "bilby"}},
+  {"moth1", {"moth1", "moth2", "moth"}},
+  {"possum1", {"possum1", "possum2", "possum"}},
+  {"lyrebird1", {"lyrebird1", "lyrebird"}},
+  {"dog1", {"dog1", "dog"}},
+  {"kangaroo1", {"kangaroo1", "kangaroo"}},
+  {"dragonfly", {"dragonfly"}},
+  {"platypus1", {"platypus1", "platypus2"}},
+  {"serval1", {"serval1", "serval"}},
+  {"daredevil1", {"daredevil1", "daredevil"}},
+  {"disruptor", {"disruptor"}},
+  {"bestie", {"bestie"}},
+  {"cheerleader1", {"cheerleader1", "cheerleader"}},
+};
+
+int BeastieCanMetamorph(const RValue &beastie, const RValue &species, const char *family_id)
+{
+  if (species["hidden"].ToBoolean())
+    return 0; // extincts have no metamorph line.
+  if (!metamorph_lines.contains(family_id)) {
+    DbgPrint("UNIMPLEMENTED METAMORPH LINE %s", family_id);
+    return 0;
+  }
+  std::string my_id = beastie["specie"].ToString();
+  std::vector<std::string> line = metamorph_lines[family_id];
+  double line_pos = 0;
+  double line_max = double(line.size() - 1);
+  for (int i = 0; i <= line_max; i++) {
+    std::string &id = line[i];
+    if (id == my_id) {
+      line_pos = i;
+      break;
+    }
+  }
+  double duplicates = GetBeastieDuplicates(beastie);
+  int should_pos = (int)(min(line_max, floor(duplicates / 6.0 * (double)(line_max + 1))));
+  int metamorph_count = 0;
+  if (line_pos < should_pos) {
+    metamorph_count = (int)(should_pos - line_pos);
+  }
+  return metamorph_count;
+}
+
+PFUNC_YYGMLScript classBeastieTameRatingString = nullptr;
+RValue &ClassBeastieTameRatingString(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  ReturnValue = RValue(std::format("{:.0f}/6", GetBeastieDuplicates(Self->ToRValue())));
+  return ReturnValue;
+}
+
+PFUNC_YYGMLScript classBeastieCanEvolve = nullptr;
+RValue &ClassBeastieCanEvolve(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  RValue beastie = Self->ToRValue();
+  RValue char_dic = Utils::GlobalGet("char_dic");
+  RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie["specie"]});
+  if (species["family"].ToString() == "shroom1") {
+    classBeastieCanEvolve(Self, Other, ReturnValue, numArgs, Args);
+  }
+  else {
+    RValue family_species = yytk->CallBuiltin("ds_map_find_value", {char_dic, species["family"]});
+    int can_evolve = BeastieCanMetamorph(beastie, family_species, family_species["id"].ToCString());
+    ReturnValue = RValue(can_evolve > 0 ? 0 : -1);
+  }
+  return ReturnValue;
+}
+
+PFUNC_YYGMLScript classBeastieWaitingToMorph = nullptr;
+RValue &ClassBeastieWaitingToMorph(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  RValue beastie = Self->ToRValue();
+  RValue char_dic = Utils::GlobalGet("char_dic");
+  RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie["specie"]});
+  if (species["family"].ToString() == "shroom1") {
+    classBeastieWaitingToMorph(Self, Other, ReturnValue, numArgs, Args);
+  }
+  else {
+    RValue family_species = yytk->CallBuiltin("ds_map_find_value", {char_dic, species["family"]});
+    int can_evolve = BeastieCanMetamorph(beastie, family_species, family_species["id"].ToCString());
+    ReturnValue = RValue(can_evolve > 0);
+  }
+  return ReturnValue;
+}
+
+RValue EnsureBeastieStats(const RValue &beastie, const char *family_id, const RValue &species, GachaResultBeastie &result, double duplicates = -1)
+{
+  if (duplicates == -1)
+    duplicates = GetBeastieDuplicates(beastie) + 1;
+  for (const char *type : coaching_types)
+    Utils::InstanceSet(beastie, type, duplicates / 6);
+  result.pid = beastie["pid"].ToString();
+  result.raremorph = floor(beastie["color"][0].ToDouble()) == 1;
+  result.metamorph = BeastieCanMetamorph(beastie, species, family_id);
+  return beastie;
+}
+
+RValue CreateBeastie(const char *family, GachaResultBeastie &result)
 {
   RValue char_dic = Utils::GlobalGet("char_dic");
+  RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, family});
   // check if species already exists without max coached
   std::vector<RValue> party = Utils::GlobalGet("team_party").ToVector();
   for (RValue &beastie : party)
-    if (IsBeastieMatch(family, beastie, char_dic)) return beastie;
+    if (IsBeastieMatch(family, beastie, char_dic))
+      return EnsureBeastieStats(beastie, family, species, result);
   RValue registry = Utils::GlobalGet("team_registry");
   std::vector<RValue> registry_keys = yytk->CallBuiltin("variable_instance_get_names", {registry}).ToVector();
   for (RValue &pid : registry_keys)
     if (IsBeastieMatch(family, registry[pid.ToString()], char_dic))
-      return registry[pid.ToString()];
-  RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, family});
+      return EnsureBeastieStats(registry[pid.ToString()], family, species, result);
   RValue beastie = Utils::CallStructMethod(species, "generate", {5, 1});
-  Utils::InstanceSet(beastie, "duplicates", 0);
-  SetBeastieCoachStats(beastie);
   yytk->CallGameScript("gml_Script_char_new_register", {beastie, 1});
-  return beastie;
+  return EnsureBeastieStats(beastie, family, char_dic, result, 0);
 }
 
 std::vector<GachaResult> DoGachaPull(GachaType &gacha, int pull_count)
 {
+  if (!yytk->CallGameScript("gml_Script_item_has", {"jersey", pull_count}).ToBoolean())
+    return {};
+  yytk->CallGameScript("gml_Script_item_delete", {"jersey", pull_count});
   std::vector<GachaResult> results;
   results.resize(pull_count);
   for (int i = 0; i < pull_count; i++) {
@@ -340,8 +448,9 @@ std::vector<GachaResult> DoGachaPull(GachaType &gacha, int pull_count)
       for (BeastieDrop &drop : drops) {
         weight += drop.weight;
         if (rng <= weight) {
-          RValue beastie = CreateBeastie(drop.family);
-          result->beastie = GachaResultBeastie(beastie["pid"].ToString(), floor(beastie["color"][0].ToDouble()) == 1);
+          GachaResultBeastie beastie_result;
+          RValue beastie = CreateBeastie(drop.family, beastie_result);
+          result->beastie = beastie_result;
           break;
         }
       }
@@ -641,6 +750,8 @@ int editing_text = 0;
 int editing_sprites = 0;
 void EditGachaMenu()
 {
+  if (ImGui::Button("Give 10 Jerseys"))
+    yytk->CallGameScript("gml_Script_item_get", {"jersey", 10});
   if (ImGui::BeginCombo("Editing", gachas[editing_gacha].name))
   {
     for (int i = 0; i < gacha_count; i++)
@@ -788,6 +899,9 @@ void GachaHooks()
   RequestHook(NULL, "gml_Script_file_write_string", "IW file_write_string", FileWriteString, reinterpret_cast<PVOID *>(&fileWriteString));
   RequestHook("gml_Script_tame_adjust", "@class_beastie", "IW tame_adjust", TameAdjust, reinterpret_cast<PVOID *>(&tameAdjust));
   RequestHook("gml_Script_ev_adjust", "@class_beastie", "IW ev_adjust", EvAdjust, reinterpret_cast<PVOID *>(&evAdjust));
+  RequestHook("gml_Script_tame_rating_string", "@class_beastie", "IW class_beastie tame_rating_string", ClassBeastieTameRatingString, reinterpret_cast<PVOID *>(&classBeastieTameRatingString));
+  RequestHook("gml_Script_can_evolve", "@class_beastie", "IW class_beastie can_evolve", ClassBeastieCanEvolve, reinterpret_cast<PVOID *>(&classBeastieCanEvolve));
+  RequestHook("gml_Script_waiting_to_morph", "@class_beastie", "IW class_beastie waiting_to_morph", ClassBeastieWaitingToMorph, reinterpret_cast<PVOID *>(&classBeastieWaitingToMorph));
 
   BuiltinHook("IW file_exists", "file_exists", FileExists, reinterpret_cast<PVOID *>(&file_exists));
   BuiltinHook("IW file_delete", "file_delete", FileDelete, reinterpret_cast<PVOID *>(&file_delete));
