@@ -217,12 +217,12 @@ GachaType gachas[] = {
   {
     "Amberstone",
     {
-      {"Beasts of", 0.23, 0.4, 1.5},
-      {"AMBERSTONE", 0.3, 0.5, 1.5, 0x57a2ff},
-      {"Servace", 0.74, 0.29, 1.2, 0xFFFFFF, true},
-      {scentered"[scale,0.5][sprIcon,3][sprIcon,3][sprIcon,3][sprIcon,3][sprIcon,3]", 0.736, 0.34, 1, 0xFFFFFF, true, true},
-      {"#1 Spiker", 0.737, 0.375, 0.5, 0xFFFFFF, true},
-      {"Drop Rate Up!", 0.808, 0.24, 0.4, 0xFFFFFF, true},
+      {"Beasts of", 0.2, 0.38, 1.5},
+      {"AMBERSTONE", 0.26, 0.48, 1.5, 0x57a2ff},
+      {"Servace", 0.76, 0.29, 1.2, 0xFFFFFF, true},
+      {scentered"[scale,0.5][sprIcon,3][sprIcon,3][sprIcon,3][sprIcon,3][sprIcon,3]", 0.756, 0.34, 1, 0xFFFFFF, true, true},
+      {"#1 Spiker", 0.757, 0.375, 0.5, 0xFFFFFF, true},
+      {"Drop Rate Up!", 0.828, 0.24, 0.4, 0xFFFFFF, true},
     },
     {
       {"serval", "volley", 0.46, 0.76, 1.2, 1.2, true},
@@ -241,7 +241,7 @@ GachaType gachas[] = {
       {"sprBall", 2, 0.39, 0.2, 0.7, 0.7, 0, 1.5},
       {"sprBall", 1, 0.39, 0.2, 0.7, 0.7},
     },
-    { { 0.45, 0.825, 1, 1 }, {0.45, 0.925, 1, 2}, {0.14, 0.27, 0, 1} },
+    { { 0.45, 0.825, 1, 1 }, {0.45, 0.925, 1, 2}, {0.14, 0.26, 0, 1} },
     1,
     {
       { {"serval1", 3}, {"cheerleader1"}, {"daredevil1"}, {"bestie"} },
@@ -633,6 +633,11 @@ void DrawControls()
   yytk->CallGameScript("gml_Script_draw_text_pgram_edge", {x, y, command, 1, 0.25, 0, 2});
 }
 
+void SetFont()
+{
+  yytk->CallBuiltin("draw_set_font", {yytk->CallGameScript("gml_Script_font_get", {2})});
+}
+
 double max_gacha_scroll = 1.0;
 
 void GachaRatesHandleInput(RValue &menu)
@@ -665,6 +670,7 @@ void DrawGachaRatesMenu(RValue &current_menu)
 {
   RValue menu = Utils::GlobalGet("mn_gacha_rates");
   if (menu.m_Object != current_menu.m_Object) return;
+  SetFont();
   GachaRatesHandleInput(menu);
   double y_pos_start = menu["selectX_anim"].ToDouble();
   double y_pos = 0 - y_pos_start;
@@ -736,6 +742,7 @@ void DrawGachaMenu()
     DrawGachaRatesMenu(current_menu);
     return;
   }
+  SetFont();
   HandleInput(menu);
   double header_dist = 1. / double(gacha_count + 1);
   double x_pos = 0;
@@ -851,7 +858,7 @@ void EditGachaMenu()
 }
 
 const char *menu_string = R"({
-  "name": "Gacha", "open": 0,
+  "name": "Recruit", "open": 0,
   "selectX": 0, "selectY": 0,
   "onEnter": null, "onExit": null,
   "selectX_anim": 0, "selectY_anim": 0,
@@ -861,7 +868,7 @@ const char *menu_string = R"({
   "bg_x1": 0.08, "bg_x2": 1.04,
   "bg_ymargin": 0, "bg_black_overlay": true,
   "mouse_selected": false, "onSelectChange": null,
-  "menu_img": 0, "commands": null
+  "menu_img": 20, "commands": null
 })";
 
 void MenuSetup()
@@ -949,6 +956,18 @@ void GachaHooks()
   MenuSetup();
 }
 
+void AddSubmenu()
+{
+  RValue game = Utils::GetObjectInstance("objGame");
+  RValue gacha_menu = Utils::GlobalGet("mn_gacha");
+  RValue main_menu = Utils::InstanceGet(game, "mn_main");
+  if (!main_menu.ToBoolean())
+    return;
+  RValue submenus = main_menu["submenus"];
+  if (gacha_menu.m_Object != yytk->CallBuiltin("ds_list_find_value", {submenus, 0}).m_Object)
+    yytk->CallBuiltin("ds_list_insert", {submenus, 0, gacha_menu});
+}
+
 void OpenMenu()
 {
   if (Utils::ObjectInstanceExists("objInit") || Utils::ObjectInstanceExists("objTitle"))
@@ -978,6 +997,7 @@ void OpenMenu()
 
 void GachaTab(bool *open)
 {
+  AddSubmenu();
   Utils::GlobalSet("HIDE_FEEDBACK", true);
   if (!other_setup_done) {
     OtherSetup();
