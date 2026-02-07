@@ -228,6 +228,7 @@ GachaType gachas[] = {
     },
     {
       {"sprBall", 2, 0.39, 0.2, 0.7, 0.7, 0, 1.5},
+      {"sprBall", 1, 0.39, 0.2, 0.7, 0.7},
     },
     { { 0.45, 0.825, 1, 1 }, {0.45, 0.925, 1, 2}, {0.14, 0.27, 0, 1} },
     1,
@@ -852,11 +853,21 @@ std::map<std::string, int> jersey_value = {
 };
 const int jersey_price = 160;
 
-bool price_setup_done = false;
+bool other_setup_done = false;
 
-void PricesSetup()
+void OtherSetup()
 {
+  RValue char_dic = Utils::GlobalGet("char_dic");
+  RValue shloom = yytk->CallBuiltin("ds_map_find_value", {char_dic, "shroommon"});
+  if (!shloom.ToBoolean()) return;
+  RValue shlecruit = shloom["recruit"];
+  shlecruit["description"] = "Recruit in the [sprMainmenu,21]Recruit menu.";
+  std::vector<RValue> keys = yytk->CallBuiltin("ds_map_keys_to_array", {char_dic}).ToVector();
+  for (RValue key : keys) {
+    yytk->CallBuiltin("ds_map_find_value", {char_dic, key})["recruit"] = shlecruit;
+  }
   RValue item_dic = Utils::GlobalGet("item_dic");
+
   if (yytk->CallBuiltin("ds_map_empty", {item_dic})) return;
   for (auto pair = jersey_value.begin(); pair != jersey_value.end(); pair++)
   {
@@ -869,7 +880,7 @@ void PricesSetup()
       item["desc"] = "Used to recruit a Beastie in the [sprMainmenu,21]Recruit menu.";
     }
   }
-  price_setup_done = true;
+  other_setup_done = true;
 }
 
 void ReduceJerseys()
@@ -935,8 +946,8 @@ void OpenMenu()
 
 void GachaTab(bool *open)
 {
-  if (!price_setup_done) {
-    PricesSetup();
+  if (!other_setup_done) {
+    OtherSetup();
   }
   else {
     ReduceJerseys();
