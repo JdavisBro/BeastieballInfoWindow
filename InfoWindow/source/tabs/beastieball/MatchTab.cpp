@@ -160,7 +160,7 @@ void MatchTab(bool *open)
 {
   RValue game = Utils::GlobalGet("GAME_ACTIVE");
   bool can_save = DoAutoSave(game);
-  if (!ImGui::Begin("Match", open))
+  if (!ImGui::Begin("Match", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
     return;
