@@ -556,8 +556,10 @@ bool DrawPullButton(const char *text, PullButtonPos &pos, const RValue &menu)
 void HandleInput(const RValue &menu)
 {
   GachaType &gacha = gachas[gacha_open];
-  int new_x = menu["selectX"].ToInt32();
-  int new_y = menu["selectY"].ToInt32();
+  int old_x = menu["selectX"].ToInt32();
+  int old_y = menu["selectY"].ToInt32();
+  int new_x = old_x;
+  int new_y = old_y;
   if (yytk->CallGameScript("gml_Script_menu_pressed_right", {}).ToBoolean()) new_x += 1;
   else if (yytk->CallGameScript("gml_Script_menu_pressed_left", {}).ToBoolean()) new_x -= 1;
   if (yytk->CallGameScript("gml_Script_menu_pressed_down", {}).ToBoolean()) {
@@ -565,6 +567,8 @@ void HandleInput(const RValue &menu)
     new_y += 1;
   }
   else if (yytk->CallGameScript("gml_Script_menu_pressed_up", {}).ToBoolean()) new_y -= 1;
+
+  if (old_x == new_x && old_y == new_y) return;
 
   int min_x = 0;
   int max_x = 0;
@@ -587,12 +591,17 @@ void HandleInput(const RValue &menu)
     else {
       if (new_x > max_x) new_x = max_x;
       if (new_x < min_x) new_x = min_x;
+      if (old_x == new_x && old_y == new_y) return;
       PullButtonPos *match = nullptr;
       for (int i = 0; i < 3; i++)
       {
         PullButtonPos *pos = &gacha.button_pos[i];
+        if (pos->selection_x == old_x && pos->selection_y == old_y) continue;
         if (pos->selection_x == new_x && pos->selection_y == new_y) { match = nullptr; break; }
-        if (pos->selection_x == new_x || pos->selection_y == new_y) match = pos;
+        if (
+          (pos->selection_y == new_y && abs(pos->selection_x - new_x) == 1) ||
+          (pos->selection_x == new_x && abs(pos->selection_y - new_y) == 1)
+          ) match = pos;
       }
       if (match) {
         new_x = match->selection_x;
