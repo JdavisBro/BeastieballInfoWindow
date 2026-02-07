@@ -17,39 +17,58 @@ namespace GachaTab {
 
 bool is_backup = false;
 
-PFUNC_YYGMLScript savedataGetFilename = nullptr;
-RValue &SavedataGetFilename(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+// MARK: File Hooks
+
+std::vector<RValue> val;
+
+void SetFilename(RValue **name_rvalue)
 {
-  savedataGetFilename(Self, Other, ReturnValue, numArgs, Args);
-  if (!is_backup && !ReturnValue.ToString().empty()) ReturnValue = RValue("gacha/" + ReturnValue.ToString());
-  return ReturnValue;
+  std::string name = (*name_rvalue)->ToString();
+  if (name.starts_with("save") || name.starts_with("backup_save")) {
+    RValue new_value = RValue("gacha/" + name);
+    if (val.empty()) val.push_back(new_value);
+    else val[0] = new_value;
+    *name_rvalue = val.data();
+  }
 }
-PFUNC_YYGMLScript savedataGetBackupFilename = nullptr;
-RValue &SavedataGetBackupFilename(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
-{
-  is_backup = true;
-  savedataGetBackupFilename(Self, Other, ReturnValue, numArgs, Args);
-  is_backup = false;
-  if (!ReturnValue.ToString().empty()) ReturnValue = RValue("gacha/" + ReturnValue.ToString());
-  return ReturnValue;
-}
+
 PFUNC_YYGMLScript fileReadString = nullptr;
 RValue &FileReadString(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
-  std::string name = Args[0]->ToString();
-  if (!name.empty() && !(name.size() == 1 && name[0] == ' ') && name.starts_with("save") || name.starts_with("backup_save")) *Args[0] = RValue("gacha/" + name);
+  SetFilename(Args);
   fileReadString(Self, Other, ReturnValue, numArgs, Args);
   return ReturnValue;
 }
 PFUNC_YYGMLScript fileWriteString = nullptr;
 RValue &FileWriteString(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
-  std::string name = (*Args[0]).ToString();
-  if (name.empty()) return ReturnValue;
-  if (!name.empty() && !(name.size() == 1 && name[0] == ' ') && name.starts_with("save") || name.starts_with("backup_save")) *Args[0] = RValue("gacha/" + name);
+  SetFilename(Args);
   fileWriteString(Self, Other, ReturnValue, numArgs, Args);
   return ReturnValue;
 }
+
+TRoutine file_exists = nullptr;
+void FileExists(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
+{
+  SetFilename(&Args);
+  file_exists(Result, Self, Other, numArgs, Args);
+}
+TRoutine file_delete = nullptr;
+void FileDelete(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
+{
+  SetFilename(&Args);
+  file_exists(Result, Self, Other, numArgs, Args);
+}
+TRoutine file_copy = nullptr;
+void FileCopy(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
+{
+  SetFilename(&Args);
+  RValue *second = (Args + 1);
+  SetFilename(&second);
+  file_exists(Result, Self, Other, numArgs, Args);
+}
+
+// MARK: Other Hooks
 
 PFUNC_YYGMLScript feedbackSubmit = nullptr;
 RValue &FeedbackSubmit(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
@@ -74,29 +93,6 @@ RValue &EvAdjust(CInstance *Self, CInstance *Other, RValue &ReturnValue, int num
   return ReturnValue;
 }
 
-TRoutine file_exists = nullptr;
-void FileExists(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
-{
-  std::string name = Args->ToString();
-  if (!name.empty() && name.starts_with("save") || name.starts_with("backup_save")) *Args = RValue("gacha/" + name);
-  file_exists(Result, Self, Other, numArgs, Args);
-}
-TRoutine file_delete = nullptr;
-void FileDelete(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
-{
-  std::string name = Args->ToString();
-  if (!name.empty() && name.starts_with("save") || name.starts_with("backup_save")) *Args = RValue("gacha/" + name);
-  file_exists(Result, Self, Other, numArgs, Args);
-}
-TRoutine file_copy = nullptr;
-void FileCopy(RValue &Result, CInstance *Self, CInstance *Other, int numArgs, RValue *Args)
-{
-  std::string name = Args->ToString();
-  if (!name.empty() && name.starts_with("save") || name.starts_with("backup_save")) *Args = RValue("gacha/" + name);
-  name = (Args + 1)->ToString();
-  if (!name.empty() && name.starts_with("save") || name.starts_with("backup_save")) *(Args + 1) = RValue("gacha/" + name);
-  file_exists(Result, Self, Other, numArgs, Args);
-}
 
 void BuiltinHook(const char *HookId, const char *FnName, PVOID HookFunction, PVOID *Trampoline)
 {
@@ -783,8 +779,6 @@ void ReduceJerseys()
 
 void GachaHooks()
 {
-  RequestHook(NULL, "gml_Script_savedata_get_filename", "IW savedata_get_filename", SavedataGetFilename, reinterpret_cast<PVOID *>(&savedataGetFilename));
-  RequestHook(NULL, "gml_Script_savedata_get_backup_filename", "IW savedata_get_backup_filename", SavedataGetBackupFilename, reinterpret_cast<PVOID *>(&savedataGetBackupFilename));
   RequestHook(NULL, "gml_Script_feedback_submit", "IW savedata_feedback_submit", FeedbackSubmit, reinterpret_cast<PVOID *>(&feedbackSubmit));
   RequestHook(NULL, "gml_Script_file_read_string", "IW file_read_string", FileReadString, reinterpret_cast<PVOID *>(&fileReadString));
   RequestHook(NULL, "gml_Script_file_write_string", "IW file_write_string", FileWriteString, reinterpret_cast<PVOID *>(&fileWriteString));
