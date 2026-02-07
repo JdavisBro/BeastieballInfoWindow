@@ -934,6 +934,11 @@ void OpenMenu()
       yytk->CallGameScript("gml_Script_menu_level_out", {});
     return;
   }
+  if (yytk->CallGameScript("gml_Script_scene_capturing_input", {}).ToBoolean() ||
+    Utils::GlobalGet("SCENE_PLAYING").ToBoolean() ||
+    Utils::GlobalGet("GAME_ACTIVE").ToDouble() != -4
+    )
+    return;
   yytk->CallGameScript("gml_Script_container_play", {"ui_menu_sub_open"});
   yytk->CallGameScript("gml_Script_buttonlist_affirmative_reset_release", {});
   yytk->CallGameScript("gml_Script_io_clear_all", {});
