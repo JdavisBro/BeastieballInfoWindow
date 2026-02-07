@@ -498,7 +498,13 @@ void DrawTextPoses(std::vector<TextPos> &text_array, bool after_beasties)
   for (TextPos &text : text_array)
   {
     if (text.front_of_beasties != after_beasties) continue;
-    RValue text_str = text.scribble ? yytk->CallGameScript("gml_Script_scribble", {text.text}) : text.text;
+    RValue text_str = text.text;
+    if (text.scribble) {
+      text_str = yytk->CallGameScript("gml_Script_scribble", {text.text});
+      if (text.color != 0xFFFFFF) {
+        Utils::CallStructMethod(text_str, "blend", {text.color});
+      }
+    }
     yytk->CallGameScript("gml_Script_draw_text_pgram", {yytk->CallGameScript("gml_Script_canvas_x", {text.x, text.y}), yytk->CallGameScript("gml_Script_canvas_y", {text.y}), text_str, text.scale, 0.25,  0, 0, text.color});
   }
 }
