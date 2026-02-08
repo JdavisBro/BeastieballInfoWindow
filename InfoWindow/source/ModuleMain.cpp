@@ -137,9 +137,16 @@ std::filesystem::path save_dir = "mod_data/";
 void CodeCallback(FWCodeEvent &Event)
 {
 	auto [Self, Other, Code, ArgCount, Arg] = Event.Arguments();
-	Event.Call(Self, Other, Code, ArgCount, Arg);
 
 	std::string name = Code->GetName();
+
+	if (name.starts_with("gml_Object_objEvolveshroom_Other_"))
+		GachaTab::specie_in_party_must_metamorph = true;
+
+	Event.Call(Self, Other, Code, ArgCount, Arg);
+
+	if (name.starts_with("gml_Object_objEvolveshroom_Other_11"))
+		GachaTab::specie_in_party_must_metamorph = false;
 
 	if (name == "gml_Object_objGame_Draw_64")
 		GachaTab::DrawGachaMenu();

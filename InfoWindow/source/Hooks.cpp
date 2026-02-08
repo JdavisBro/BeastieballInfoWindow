@@ -72,6 +72,7 @@ void CreateHooks()
     {
       DbgPrintEx(LOG_SEVERITY_WARNING, "Unable to find script for %s%s", request.pre == NULL ? "" : request.pre, request.post);
     }
+    yytk->CallBuiltin("show_message", {"HOOK(S) FAILED"});
   }
 }
 
