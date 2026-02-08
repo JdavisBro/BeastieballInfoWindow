@@ -215,6 +215,7 @@ struct GachaType {
   PullButtonPos button_pos[3];
   int down_x_pos;
   DropRates rates;
+  const char *level_name;
 };
 
 #define scentered "[fa_center][fa_middle]"
@@ -254,6 +255,7 @@ GachaType gachas[] = {
       { {"platypus1"}, {"moth1"}, {"possum1"}, {"lyrebird1"}, {"dog1"}, {"kangaroo1"}, {"dragonfly"}, {"disruptor"} },
       default_item_drops,
     },
+    "gacha_amberstone",
   },
   {
     "Starters",
@@ -266,7 +268,8 @@ GachaType gachas[] = {
     { },
     { { 0.2, 0.2, 0, 1 }, { 0.5, 0.2, 1, 1 }, { 0.2, 0.4, 0, 2 } },
     -1,
-    {}
+    {},
+    "gacha_amberstone",
   },
 };
 int gacha_count = 2;
@@ -318,7 +321,7 @@ bool IsBeastieMatch(const char *family, const RValue &beastie, const RValue &cha
 }
 
 std::map<std::string, std::vector<std::string>> metamorph_lines = {
-  // sprecko doesn't need to be here
+  {"shroom1", {"shroom1", "shroom_b", "shroom_s", "shroom_m"}},
   {"cassowary1", {"cassowary1", "cassowary2", "cassowary"}},
   {"frog1", {"frog1", "frog2", "frog"}},
   {"bilby1", {"bilby1", "bilby2", "bilby"}},
@@ -341,7 +344,7 @@ std::map<std::string, std::vector<std::string>> metamorph_lines = {
   {"clown1", {"clown1", "clown"}},
   {"ghost1", {"ghost1", "ghost2", "ghost"}},
   {"shy", {"shy"}},
-  // troglum doesn't need to be here
+  {"tricky1", {"tricky1", "tricky"}},
   {"okapi", {"okapi"}},
   {"mantis", {"mantis"}},
   {"monkey", {"monkey"}},
@@ -376,7 +379,7 @@ std::map<std::string, std::vector<std::string>> metamorph_lines = {
   {"swift", {"swift"}},
   {"olm1", {"olm1", "olm"}},
   // Mountain (add with extincts?)
-  {"spirit1", {"spirit1", "spirit"}}, // lunaptra is handled elsewhere
+  {"spirit1", {"spirit1", "spirit", "snowspirit"}},
   {"beluga", {"beluga"}},
   {"yeti", {"yeti"}},
   // extincts don't need to be here.
@@ -533,15 +536,227 @@ RValue CreateBeastie(const char *family, GachaResultBeastie &result)
   return EnsureBeastieStats(beastie, family, char_dic, result, 0);
 }
 
-std::vector<GachaResult> DoGachaPull(GachaType &gacha, int pull_count)
+std::vector<GachaResult> gacha_pull;
+
+bool is_my_scene = false;
+
+const int gacha_scene_progress_start = -1;
+enum GachaSceneProgress {
+  GACHA_SCENE_BEGIN = -1,
+  GACHA_SCENE_POST = 10,
+  GACHA_SCENE_OVER = 11,
+};
+int gacha_scene_progress = gacha_scene_progress_start;
+
+struct CameraLocation {
+  double x;
+  double y;
+  double z;
+  double height_angle = 80;
+  double dist = -200;
+};
+
+struct ItemDrawer {
+  double x;
+  double y;
+  double z;
+  int index;
+  bool draw_index = false;
+  double flip_progress = 0;
+};
+
+std::vector<CameraLocation> camera_locations;
+const double tween_speed = 1; // per second
+double tween_progress = 0;
+
+std::vector<ItemDrawer> item_drawers;
+
+double Interp(double from, double to, double x)
+{
+  return from + (to - from) * x;
+}
+
+CameraLocation CameraInterp(CameraLocation &from, CameraLocation &to, double x)
+{
+  return {Interp(from.x, to.x, x), Interp(from.y, to.y, x), Interp(from.z, to.z, x), Interp(from.height_angle, to.height_angle, x), Interp(from.dist, to.dist, x)};
+}
+
+CameraLocation scene_camera;
+
+void SetCameraLocation(CameraLocation camera, const RValue &scene_manager)
+{
+  scene_camera = camera;
+  DbgPrint("set camera %f %f %f", camera.x, camera.y, camera.z);
+  RValue shot = Utils::InstanceGet(scene_manager, "shot_overworld");
+  shot["look_x"] = camera.x;
+  shot["look_y"] = camera.y;
+  shot["look_z"] = camera.z;
+  shot["height_angle"] = camera.height_angle;
+  shot["dist"] = camera.dist;
+}
+
+bool MySceneFrame()
+{
+  DbgPrint("MY SCENE! progress %d - tween %f", gacha_scene_progress, tween_progress);
+  RValue delta_rv;
+  yytk->GetBuiltin("delta_time", nullptr, NULL_INDEX, delta_rv);
+  RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
+  double delta = delta_rv.ToDouble() / 1'000'000;
+  size_t gacha_pull_size = gacha_pull.size();
+  if (!Utils::GlobalExists("GACHA_SCENE_RENDERERS") || !yytk->CallBuiltin("array_length", {Utils::GlobalGet("GACHA_SCENE_RENDERERS")}).ToBoolean()) {
+    Utils::InstanceSet(Utils::GetObjectInstance("objPlayer"), "visible", false);
+    RValue renderers = yytk->CallBuiltin("array_create", {gacha_pull_size});
+    camera_locations.clear();
+    camera_locations.resize(gacha_pull_size + 2);
+    item_drawers.resize(gacha_pull_size);
+    RValue item_dic = Utils::GlobalGet("item_dic");
+    for (int i = 0; i < 2; i++)
+    {
+      RValue node = yytk->CallGameScript("gml_Script_levelnode_find", {RValue("gacha_start" + std::to_string(i))});
+      camera_locations[i] = {node["x"].ToDouble(), node["y"].ToDouble(), node["z"].ToDouble()};
+      DbgPrint("loc %i - x %f - y %f - z %f", i, camera_locations[i].x, camera_locations[i].y, camera_locations[i].z);
+    }
+    RValue global_renderers = Utils::GlobalGet("char_renderers");
+    for (size_t i = 0; i < gacha_pull_size; i++) {
+      GachaResult &result = gacha_pull[i];
+      RValue node = yytk->CallGameScript("gml_Script_levelnode_find", {RValue("gacha_location" + std::to_string(i))});
+      CameraLocation camera_location = {node["x"].ToDouble(), node["y"].ToDouble(), node["z"].ToDouble()};
+      camera_locations[i + 2] = camera_location;
+      DbgPrint("loc %i - x %f - y %f - z %f", i + 2, camera_locations[i + 2].x, camera_locations[i + 2].y, camera_locations[i + 2].z);
+      if (result.type == GACHA_BEASTIE) {
+        RValue renderer = yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {R"({"_": "class_beastie_renderer"})"})});
+        RValue beastie = yytk->CallGameScript("gml_Script_char_find_by_pid", {RValue(result.beastie.pid)});
+        renderer["x"] = camera_location.x;
+        renderer["y"] = camera_location.y;
+        renderer["z"] = camera_location.z;
+        Utils::CallStructMethod(renderer, "set_char", {beastie});
+        renderers[i] = renderer;
+        yytk->CallBuiltin("array_push", {global_renderers, renderer});
+      }
+      else {
+        RValue item = yytk->CallBuiltin("ds_map_find_value", {item_dic, RValue(result.item.id)});
+        item_drawers[i] = {camera_location.x, camera_location.y, camera_location.z, item["img"].ToInt32()};
+      }
+    }
+    Utils::GlobalSet("GACHA_SCENE_RENDERERS", renderers);
+  }
+  DbgPrint("scene begin");
+  RValue renderers = Utils::GlobalGet("GACHA_SCENE_RENDERERS");
+  tween_progress += delta;
+  bool scene_skipping = Utils::InstanceGet(scene_manager, "scene_skipping").ToBoolean();
+  switch (gacha_scene_progress) {
+  case GACHA_SCENE_BEGIN: {
+    SetCameraLocation(CameraInterp(camera_locations[0], camera_locations[1], tween_progress / 3), scene_manager);
+    if (tween_progress >= 3 || scene_skipping) {
+      tween_progress = 0;
+      gacha_scene_progress += 1;
+      return true;
+    }
+    break;
+  }
+  case GACHA_SCENE_POST: {
+    SetCameraLocation(CameraInterp(camera_locations[gacha_pull_size + 2 - 1], camera_locations[1], min(1, tween_progress / 3)), scene_manager);
+    break;
+  }
+  default: {
+    // gacha index
+    SetCameraLocation(CameraInterp(camera_locations[gacha_scene_progress + 1], camera_locations[gacha_scene_progress + 2], min(1, tween_progress)), scene_manager);
+    GachaResult &result = gacha_pull[gacha_scene_progress];
+    bool scene_skipping_actually = scene_skipping && result.rarity < 4;
+    if (scene_skipping_actually != scene_skipping)
+      Utils::InstanceSet(scene_manager, "scene_skipping", scene_skipping_actually);
+    if (result.type == GACHA_BEASTIE) {
+      RValue renderer = renderers[gacha_scene_progress];
+      if (tween_progress > 2 || scene_skipping_actually)
+        yytk->CallGameScript("gml_Script_char_animation", {renderer, "good"});
+    }
+    else {
+      ItemDrawer &drawer = item_drawers[gacha_scene_progress];
+      double new_prog = 0;
+      if (tween_progress < 2 && !scene_skipping_actually) {
+        new_prog = (tween_progress - 1.5) * 2;
+      }
+      else {
+        drawer.draw_index = true;
+        new_prog = 3 + (tween_progress - 2) * 2;
+      }
+      drawer.flip_progress = min(4, max(0, new_prog));
+    }
+    if (tween_progress > 5 || scene_skipping_actually) {
+      tween_progress = 0;
+      gacha_scene_progress += 1;
+      if (gacha_scene_progress >= gacha_pull_size)
+        gacha_scene_progress = 10;
+      return true;
+    }
+
+    break;
+  }
+  }
+  return false;
+}
+
+void RenderSceneCharRenderers()
+{
+  if (!Utils::GlobalExists("GACHA_SCENE_RENDERERS"))
+    return;
+  RValue renderers = Utils::GlobalGet("GACHA_SCENE_RENDERERS");
+  RValue sprItems = yytk->CallBuiltin("asset_get_index", {"sprItems"});
+  RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
+  SetCameraLocation(scene_camera, scene_manager);
+  Utils::InstanceSet(scene_manager, "gameplay_camera", false);
+  for (size_t i = 0; i < gacha_pull.size(); i++) {
+    GachaResult &result = gacha_pull[i];
+    if (result.type == GACHA_BEASTIE) {
+      RValue renderer = renderers[i];
+      Utils::CallStructMethod(renderer, "draw", {});
+    }
+    else {
+      ItemDrawer &drawer = item_drawers[i];
+      yytk->CallGameScript("gml_Script_mstack_rotate_ext", {180 + drawer.flip_progress * 90, 0, 0});
+      yytk->CallGameScript("gml_Script_mstack_translate", {drawer.x, drawer.y, drawer.z});
+      yytk->CallGameScript("gml_Script_mstack_set_and_clear", {});
+      yytk->CallBuiltin("shader_set", {yytk->CallBuiltin("asset_get_index", {"shader3DBillboard"})});
+      yytk->CallBuiltin("draw_sprite_ext", {sprItems, drawer.draw_index ? drawer.index : 6, 32, 32, 1, 1, 180, 0xFFFFFF, 1});
+      yytk->CallBuiltin("matrix_set", {2, Utils::GlobalGet("__identity_matrix")});
+    }
+  }
+}
+
+bool AmScene(CInstance *Self)
+{
+  RValue am_scene;
+  yytk->CallGameScriptEx(am_scene, "gml_Script_AmScene", Self, nullptr, {});
+  return am_scene.ToBoolean();
+}
+
+PFUNC_YYGMLScript waitForTween = nullptr;
+RValue &WaitForTween(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  if (is_my_scene && AmScene(Self))
+    ReturnValue = MySceneFrame();
+  else
+    waitForTween(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+
+PFUNC_YYGMLScript sceneEnd = nullptr;
+RValue &SceneEnd(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  if (AmScene(Self))
+    is_my_scene = false;
+  sceneEnd(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+
+void DoGachaPull(GachaType &gacha, int pull_count)
 {
   if (!yytk->CallGameScript("gml_Script_item_has", {"jersey", pull_count}).ToBoolean())
-    return {};
+    return;
   yytk->CallGameScript("gml_Script_item_delete", {"jersey", pull_count});
-  std::vector<GachaResult> results;
-  results.resize(pull_count);
+  gacha_pull.resize(pull_count);
   for (int i = 0; i < pull_count; i++) {
-    GachaResult *result = results.data() + i;
+    GachaResult *result = gacha_pull.data() + i;
     double rng = yytk->CallBuiltin("random", {1}).ToDouble();
     int rarity = 3;
     double weight = gacha.rates.weight_5;
@@ -592,7 +807,24 @@ std::vector<GachaResult> DoGachaPull(GachaType &gacha, int pull_count)
     }
     }
   }
-  return results;
+  is_my_scene = true;
+  gacha_scene_progress = gacha_scene_progress_start;
+  CInstance *global_inst = nullptr;
+  yytk->GetGlobalInstance(&global_inst);
+  RValue global = global_inst->ToRValue();
+  yytk->CallGameScript("gml_Script_SceneLayerIn", {});
+  yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "data_save_level")});
+  yytk->CallGameScript("gml_Script_Fade", {0, 1, 0.25, 1, -3});
+  yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "menu_level_out_all")});
+  yytk->CallGameScript("gml_Script_LevelTransition", {gacha.level_name, -3});
+  yytk->CallGameScript("gml_Script_WaitForTween", {1}); // My Scene
+  for (int i = 0; i < pull_count; i++) {
+    GachaResult &result = gacha_pull[i];
+    yytk->CallGameScript("gml_Script_WaitForTween", {1}); // My Scene
+    yytk->CallGameScript("gml_Script_WaitForInput", {result.rarity >= 4});
+  }
+  yytk->CallGameScript("gml_Script_SceneEnd", {});
+  yytk->CallGameScript("gml_Script_SceneLayerOut", {});
 }
 
 int gacha_open = 0;
@@ -783,13 +1015,14 @@ void AddRatesForBeastie(double &y_pos, double *rarity_weight, double *total_rari
     RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, drop.family});
     rates.push_back({beastie["name"].ToString(), y_pos, rarity, drop.weight, rarity_weight, total_rarity_weight});
   }
+  bool is_divergant = strcmp(drop.family, "shroom1") > -1 || strcmp(drop.family, "spirit1") > -1;
   std::vector<std::string> line = metamorph_lines[drop.family];
   size_t line_size = line.size();
   for (size_t i = 1; i < line_size; i++) {
     y_pos += i > 1 ? rates_small_text_height : rates_small_text_spacing;
     if (y_pos < rates_display_min || y_pos > rates_display_max) continue;
     RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, RValue(line[i])});
-    int meta_pos = (int)floor(i / (double)(line_size) * 6.0);
+    int meta_pos = is_divergant ? 3 : (int)floor(i / (double)(line_size) * 6.0);
     rates.push_back({std::format("[scale,0.5]Can metamorph to {} at COACHED {}/6", beastie["name"].ToString(), meta_pos), y_pos});
   }
   if (line_size > 1) y_pos -= rates_small_back_spacing;
@@ -887,18 +1120,10 @@ void DrawGachaMenu()
       DrawBeastieLayout(gacha.beastie_layout, true);
       DrawTextPoses(gacha.text, true);
       DrawSprites(gacha.sprites, true);
-      if (DrawPullButton(scentered"Recruit 1 [sprItems,6]x1", gacha.button_pos[0], menu)) {
-        std::vector<GachaResult> results = DoGachaPull(gacha, 1);
-        for (GachaResult &result : results) {
-          DbgPrint("%i, %i, %s", result.type, result.rarity, result.type == GACHA_BEASTIE ? result.beastie.pid.c_str() : result.item.id.c_str());
-        }
-      }
-      if (DrawPullButton(scentered"Recruit 10 [sprItems,6]x10", gacha.button_pos[1], menu)) {
-        std::vector<GachaResult> results = DoGachaPull(gacha, 10);
-        for (GachaResult &result : results) {
-          DbgPrint("%i, %i, %s", result.type, result.rarity, result.type == GACHA_BEASTIE ? result.beastie.pid.c_str() : result.item.id.c_str());
-        }
-      }
+      if (DrawPullButton(scentered"Recruit 1 [sprItems,6]x1", gacha.button_pos[0], menu))
+        DoGachaPull(gacha, 1);
+      if (DrawPullButton(scentered"Recruit 10 [sprItems,6]x10", gacha.button_pos[1], menu))
+        DoGachaPull(gacha, 10);
       if (DrawPullButton(scentered"[scale,0.75]View Drop Rates", gacha.button_pos[2], menu))
         OpenGachaRates();
       DrawTextPgram(0.98, 0.035, Scribble(RValue(std::format(scentered"[scale,0.5][sprItems,6] {}", yytk->CallGameScript("gml_Script_item_count", {"jersey"}).ToString()))), 1, 0.25, 0, 2);
@@ -1080,6 +1305,9 @@ void GachaHooks()
   RequestHook(NULL, "gml_Script_beastie_specie_in_party", "IW beastie_specie_in_party", BeastieSpecieInParty, reinterpret_cast<PVOID *>(&beastieSpecieInParty));
   RequestHook(NULL, "gml_Script_anon@700@gml_Object_objEvolvetrickies_Other_10", "IW trickies", TrickiesCheck, reinterpret_cast<PVOID *>(&trickiesCheck));
 
+  RequestHook(NULL, "gml_Script_SceneEnd", "IW SceneEnd", SceneEnd, reinterpret_cast<PVOID *>(&sceneEnd));
+  RequestHook(NULL, "gml_Script_WaitForTween", "IW WaitForTween", WaitForTween, reinterpret_cast<PVOID *>(&waitForTween));
+
   BuiltinHook("IW file_exists", "file_exists", FileExists, reinterpret_cast<PVOID *>(&file_exists));
   BuiltinHook("IW file_delete", "file_delete", FileDelete, reinterpret_cast<PVOID *>(&file_delete));
   BuiltinHook("IW file_copy", "file_copy", FileCopy, reinterpret_cast<PVOID *>(&file_copy));
@@ -1138,6 +1366,7 @@ void GachaTab(bool *open)
   else {
     ReduceJerseys();
   }
+  RenderSceneCharRenderers();
   if (yytk->CallBuiltin("keyboard_check_pressed", {114.0}).ToBoolean())
     OpenMenu();
   if (!ImGui::Begin("Gacha", open, ImGuiWindowFlags_NoFocusOnAppearing))
