@@ -97,6 +97,12 @@ RValue &FeedbackSubmit(CInstance *Self, CInstance *Other, RValue &ReturnValue, i
   return ReturnValue;
 }
 
+PFUNC_YYGMLScript analyticsSubmit = nullptr;
+RValue &AnalyticsSubmit(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  return ReturnValue;
+}
+
 PFUNC_YYGMLScript tameAdjust = nullptr;
 RValue &TameAdjust(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
@@ -1036,7 +1042,8 @@ void ReduceJerseys()
 
 void GachaHooks()
 {
-  RequestHook(NULL, "gml_Script_feedback_submit", "IW savedata_feedback_submit", FeedbackSubmit, reinterpret_cast<PVOID *>(&feedbackSubmit));
+  RequestHook(NULL, "gml_Script_feedback_submit", "IW feedback_submit", FeedbackSubmit, reinterpret_cast<PVOID *>(&feedbackSubmit));
+  RequestHook(NULL, "gml_Script_analytics_submit", "IW analytics_submit", AnalyticsSubmit, reinterpret_cast<PVOID *>(&analyticsSubmit));
   RequestHook(NULL, "gml_Script_file_read_string", "IW file_read_string", FileReadString, reinterpret_cast<PVOID *>(&fileReadString));
   RequestHook(NULL, "gml_Script_file_write_string", "IW file_write_string", FileWriteString, reinterpret_cast<PVOID *>(&fileWriteString));
   RequestHook("gml_Script_tame_adjust", "@class_beastie", "IW tame_adjust", TameAdjust, reinterpret_cast<PVOID *>(&tameAdjust));
