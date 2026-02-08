@@ -204,7 +204,7 @@ struct DropRates {
   std::vector<ItemDrop> drops_other;
   double weight_5 = 0.02;
   double weight_4 = 0.2;
-  double weight_other = 0.75;
+  double weight_other = 0.78;
 };
 
 struct GachaType {
@@ -760,15 +760,40 @@ void GachaRatesHandleInput(RValue &menu)
 }
 
 const double rates_text_height = 0.1;
+const double rates_small_text_spacing = 0.06;
+const double rates_small_text_height = 0.0375;
+const double rates_small_back_spacing = 0.0215;
 const double rates_display_min = -rates_text_height / 2;
 const double rates_display_max = 1.0 + rates_text_height / 2;
 
 struct DropRate {
   std::string name;
   double y_pos;
-  int rarity;
-  double weight;
+  int rarity = 0;
+  double weight = 0;
+  double *total_rarity_weight;
+  double *total_weight;
 };
+
+void AddRatesForBeastie(double &y_pos, double *rarity_weight, double *total_rarity_weight, const RValue &char_dic, std::vector<DropRate> &rates, BeastieDrop &drop, int rarity)
+{
+  y_pos += rates_text_height;
+  *rarity_weight += drop.weight;
+  if (y_pos > rates_display_min || y_pos < rates_display_max) {
+    RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, drop.family});
+    rates.push_back({beastie["name"].ToString(), y_pos, rarity, drop.weight, rarity_weight, total_rarity_weight});
+  }
+  std::vector<std::string> line = metamorph_lines[drop.family];
+  size_t line_size = line.size();
+  for (size_t i = 1; i < line_size; i++) {
+    y_pos += i > 1 ? rates_small_text_height : rates_small_text_spacing;
+    if (y_pos < rates_display_min || y_pos > rates_display_max) continue;
+    RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, RValue(line[i])});
+    int meta_pos = (int)floor(i / (double)(line_size) * 6.0);
+    rates.push_back({std::format("[scale,0.5]Can metamorph to {} at COACHED {}/6", beastie["name"].ToString(), meta_pos), y_pos});
+  }
+  if (line_size > 1) y_pos -= rates_small_back_spacing;
+}
 
 void DrawGachaRatesMenu(RValue &current_menu)
 {
@@ -781,42 +806,42 @@ void DrawGachaRatesMenu(RValue &current_menu)
   GachaType &gacha = gachas[gacha_open];
   RValue item_dic = Utils::GlobalGet("item_dic");
   std::vector<DropRate> rates;
-  double total_weight = 0;
   RValue char_dic = Utils::GlobalGet("char_dic");
   y_pos += rates_text_height;
   DrawTextPgram(0.5, y_pos, std::format("Drop Rates for {}", gacha.name).c_str());
+  y_pos += rates_text_height;
+  DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Recruiting a Beastie you already have at COACHED 0 - 5 will increase the COACHED level of the Beastie.", gacha.rates.weight_5 * 100))));
+  y_pos += rates_small_text_spacing;
+  DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Total 5[sprIcon,3] Drop Chance {:.0f}%", gacha.rates.weight_5 * 100))));
+  y_pos += rates_small_text_spacing;
+  DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Total 4[sprIcon,3] Drop Chance {:.0f}%", gacha.rates.weight_4 * 100).c_str())));
+  y_pos += rates_small_text_spacing;
+  DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Total 1-3[sprIcon,3] Drop Chance {:.0f}%", gacha.rates.weight_other * 100))));
+  double weight_5 = 0;
   for (BeastieDrop &drop : gacha.rates.drops_5) {
-    y_pos += rates_text_height;
-    double weight = drop.weight * gacha.rates.weight_5;
-    total_weight += weight;
-    if (y_pos < rates_display_min || y_pos > rates_display_max) continue;
-    RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, drop.family});
-    rates.push_back({beastie["name"].ToString(), y_pos, 5, weight});
+    AddRatesForBeastie(y_pos, &weight_5, &gacha.rates.weight_5, char_dic, rates, drop, 5);
   }
+  double weight_4 = 0;
   for (BeastieDrop &drop : gacha.rates.drops_4) {
-    y_pos += rates_text_height;
-    double weight = drop.weight * gacha.rates.weight_4;
-    total_weight += weight;
-    if (y_pos < rates_display_min || y_pos > rates_display_max) continue;
-    RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, drop.family});
-    rates.push_back({beastie["name"].ToString(), y_pos, 4, weight});
+    AddRatesForBeastie(y_pos, &weight_4, &gacha.rates.weight_4, char_dic, rates, drop, 4);
   }
+  double weight_other = 0;
   for (int rarity = 3; rarity > 0; rarity--) {
     for (ItemDrop &drop : gacha.rates.drops_other)
     {
       if (drop.rarity == rarity) {
         y_pos += rates_text_height;
-        double weight = drop.weight * gacha.rates.weight_other;
-        total_weight += weight;
+        weight_other += drop.weight;
         if (y_pos < rates_display_min || y_pos > rates_display_max) continue;
         RValue item = yytk->CallBuiltin("ds_map_find_value", {item_dic, drop.item});
-        rates.push_back({std::format("[sprItems,{}]{}", item["img"].ToString(), item["name"].ToString()), y_pos, rarity, weight});
+        rates.push_back({std::format("[sprItems,{}]{}", item["img"].ToString(), item["name"].ToString()), y_pos, rarity, drop.weight, &weight_other, &gacha.rates.weight_other});
       }
     }
   }
   max_gacha_scroll = y_pos_start + y_pos - 1 + rates_text_height * 1.5;
   for (DropRate rate : rates) {
-    DrawTextPgram(0.5, rate.y_pos, Scribble(RValue(std::format(scentered"{} - {}[sprIcon,3] - {:.5f}%", rate.name, rate.rarity, rate.weight / total_weight * 100))));
+    double drop_percent = rate.rarity ? (rate.weight / (*rate.total_rarity_weight) * (*rate.total_weight) * 100) : 0;
+    DrawTextPgram(0.5, rate.y_pos, Scribble(RValue(rate.rarity ? std::format(scentered"{} - {}[sprIcon,3] - {:.5f}%", rate.name, rate.rarity, drop_percent) : scentered + rate.name)));
   }
   DrawControls();
 }
