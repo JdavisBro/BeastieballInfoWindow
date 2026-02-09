@@ -13,6 +13,8 @@ using namespace YYTK;
 
 #include "GachaTab.h"
 
+#include "CheatsTab.h"
+
 namespace GachaTab {
 
 bool is_backup = false;
@@ -1094,7 +1096,7 @@ void DoGachaPull(GachaType &gacha, int pull_count)
   yytk->GetGlobalInstance(&global_inst);
   RValue global = global_inst->ToRValue();
   yytk->CallGameScript("gml_Script_SceneLayerIn", {});
-  if (gacha_scene_progress == gacha_scene_progress_start)
+  if (!Utils::InstanceGet(Utils::GetObjectInstance("objLevel"), "level_data")["name"].ToString().starts_with("gacha"))
     yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "data_save_level")});
   yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "savedata_save")});
   yytk->CallGameScript("gml_Script_Fade", {0, 1, 0.25, 1, -3});
@@ -1116,6 +1118,7 @@ void DoGachaPull(GachaType &gacha, int pull_count)
   yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "data_load_level")});
   yytk->CallGameScript("gml_Script_Wait", {0.1});
   yytk->CallGameScript("gml_Script_Fade", {0, 0, 0.25, 1, -3});
+  yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "savedata_save")});
   yytk->CallGameScript("gml_Script_SceneEnd", {});
   yytk->CallGameScript("gml_Script_SceneLayerOut", {});
   gacha_scene_progress = gacha_scene_progress_start;
@@ -1663,6 +1666,16 @@ void GachaTab(bool *open)
   }
   else {
     ReduceJerseys();
+  }
+  if (Utils::ObjectInstanceExists("objLevel") && Utils::InstanceGet(Utils::GetObjectInstance("objLevel"), "level_data")["name"].ToString().starts_with("gacha") && !is_my_scene)
+  {
+    DbgPrint(Utils::InstanceGet(Utils::GlobalGet("data"), "player_pos").ToCString());
+    std::vector<RValue> player_pos = Utils::InstanceGet(Utils::GlobalGet("data"), "player_pos").ToVector();
+    RValue level = CheatsTab::FindLevel(player_pos[0].ToDouble(), player_pos[1].ToDouble());
+    if (level.ToBoolean())
+      yytk->CallGameScript("gml_Script_level_goto", {level["name"], true});
+    else
+      yytk->CallGameScript("gml_Script_level_goto", {"hometown"});
   }
   RenderScene();
   if (yytk->CallBuiltin("keyboard_check_pressed", {114.0}).ToBoolean())
