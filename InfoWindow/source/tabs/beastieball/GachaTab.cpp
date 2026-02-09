@@ -202,7 +202,7 @@ struct DropRates {
   std::vector<BeastieDrop> drops_4;
   std::vector<ItemDrop> drops_other;
   double weight_5 = 0.02;
-  double weight_4 = 0.98;
+  double weight_4 = 0.20;
   double weight_other = 0.78;
 };
 
@@ -314,7 +314,7 @@ bool IsBeastieMatch(const char *family, const RValue &beastie, const RValue &cha
   RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie["specie"]});
   double duplicates = GetBeastieDuplicates(beastie);
   bool hidden = species["hidden"].ToBoolean();
-  if ((!hidden && species["family"].ToString() == family) || (hidden && species["id"].ToString() == family) && duplicates < 6)
+  if (((!hidden && species["family"].ToString() == family) || (hidden && species["id"].ToString() == family)) && duplicates < 6)
     return true;
   return false;
 }
@@ -490,6 +490,16 @@ RValue &TrickiesCheck(CInstance *Self, CInstance *Other, RValue &ReturnValue, in
   return ReturnValue;
 }
 
+PFUNC_YYGMLScript dataUpdatePlayerPos = nullptr;
+RValue &DataUpdatePlayerPos(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  RValue name = numArgs > 0 && Args[0]->m_Kind != VALUE_UNDEFINED ? *Args[0] : Utils::InstanceGet(Utils::GetObjectInstance("objLevel"), "level_data")["name"];
+  if (name.ToString().starts_with("gacha"))
+    return ReturnValue;
+  dataUpdatePlayerPos(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+
 PFUNC_YYGMLScript classBeastieCanEvolve = nullptr;
 RValue &ClassBeastieCanEvolve(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
@@ -592,7 +602,17 @@ struct ImpactPos {
   double color2 = 0xFFFFFF;
 };
 
+struct PullTextDisplay {
+  double name = 0;
+  double coached = 0;
+  bool press_to_continue = 0;
+  double continue_time;
+};
+
+PullTextDisplay text_display;
+
 bool do_scene_render = false;
+
 std::vector<CameraLocation> camera_locations;
 const double tween_speed = 1; // per second
 double tween_progress = 0;
@@ -666,6 +686,7 @@ void SceneDestroy()
   beastie_drawers.clear();
   tween_progress = 0;
   impact = {};
+  text_display = {};
   do_scene_render = false;
 }
 
@@ -773,6 +794,10 @@ bool MySceneFrame()
   case GACHA_SCENE_POST: {
     impact.drawing = false;
     gacha_scene_drawing = gacha_scene_progress_start;
+    if (scene_skipping) {
+      tween_progress = 2.1;
+      Utils::InstanceSet(scene_manager, "scene_skipping", false);
+    };
     SetCameraLocation(CameraInterp(camera_locations[gacha_pull_size + 2 - 1], camera_locations[1], min(1, tween_progress / 2)), scene_manager);
     if (tween_progress >= 2) {
       gacha_scene_progress += 1;
@@ -786,20 +811,22 @@ bool MySceneFrame()
   }
   default: {
     // gacha index
+    if (gacha_scene_drawing != gacha_scene_progress)
+      text_display = {};
+    GachaResult &result = gacha_pull[gacha_scene_progress];
+    if (scene_skipping && result.rarity < 4 && tween_progress < 5)
+      tween_progress = 5.1;
     CameraLocation camera_location = camera_locations[gacha_scene_progress + 2];
     SetCameraLocation(CameraInterp(camera_locations[gacha_scene_progress + 1], camera_location, min(1, tween_progress)), scene_manager);
-    GachaResult &result = gacha_pull[gacha_scene_progress];
-    bool scene_skipping_actually = scene_skipping && result.rarity < 4;
-    if (scene_skipping_actually != scene_skipping)
-      Utils::InstanceSet(scene_manager, "scene_skipping", scene_skipping_actually);
     ItemDrawer &drawer = item_drawers[gacha_scene_progress];
-    gacha_scene_drawing = gacha_scene_progress_start;
+    if (tween_progress > 1)
+      gacha_scene_drawing = gacha_scene_progress;
+    else
+      gacha_scene_drawing = gacha_scene_progress_start;
     if (result.type == GACHA_BEASTIE) {
       RValue renderer = renderers[gacha_scene_progress];
       BeastieDrawer &beastie_pos = beastie_drawers[gacha_scene_progress];
       double prog = max(0, min(1, tween_progress - 1));
-      if (tween_progress > 1)
-        gacha_scene_drawing = gacha_scene_progress;
       Vec3 pos = Vec3EaseInSin(beastie_pos.middle_pos, beastie_pos.end_pos, prog);
       renderer["x"] = pos.x;
       renderer["y"] = pos.y;
@@ -811,10 +838,11 @@ bool MySceneFrame()
         impact.drawing = false;
       if (tween_progress >= 2) {
         if (!impact.drawing) {
-          yytk->CallGameScript("gml_Script_eff_raylines", {0.6, 0.2});
+          yytk->CallGameScript("gml_Script_eff_raylines", {0.6, 0.5});
           Utils::InstanceSet(scene_manager, "screen_shake_amt", 5);
-          Utils::InstanceSet(scene_manager, "screen_shake_time", 0.2);
+          Utils::InstanceSet(scene_manager, "screen_shake_time", 0.3);
         }
+        text_display.name = 1;
         impact.pos = drawer.end_pos;
         impact.color = beastie_pos.color;
         impact.color2 = beastie_pos.color2;
@@ -823,16 +851,30 @@ bool MySceneFrame()
     }
     else {
       double new_rot_x = 0;
-      if (tween_progress < 1.75 && !scene_skipping_actually) {
+      if (tween_progress < 1.75) {
         new_rot_x = (tween_progress - 1.5) * 4;
       }
       else {
         drawer.draw_index = true;
         new_rot_x = 3 + (tween_progress - 1.75) * 4;
       }
+      if (tween_progress > 1.9) {
+        if (!impact.drawing) {
+          Utils::InstanceSet(scene_manager, "screen_shake_amt", 5);
+          Utils::InstanceSet(scene_manager, "screen_shake_time", 0.3);
+        }
+        impact.pos = drawer.end_pos;
+        impact.color = -1;
+        impact.color2 = -1;
+        impact.drawing = true;
+      }
+      else {
+        impact.drawing = false;
+      }
       drawer.rotation_x = min(4, max(0, new_rot_x)) / 4;
     }
-    if (tween_progress > 5 || scene_skipping_actually) {
+    if (tween_progress > 5) {
+      text_display.press_to_continue = true;
       tween_progress = 0;
       gacha_scene_progress += 1;
       if (gacha_scene_progress >= gacha_pull_size)
@@ -846,13 +888,13 @@ bool MySceneFrame()
   return false;
 }
 
-void DrawStarburst(double x, double y, double z, double color, double power, double mid_power)
+void DrawStarburst(double x, double y, double z, double color, double power, double mid_power, double rng = -1)
 {
   yytk->CallGameScript("gml_Script_mstack_rotate_ext", {0, 0, scene_camera.pan_angle});
   yytk->CallGameScript("gml_Script_mstack_translate", {x, y, z});
   yytk->CallGameScript("gml_Script_mstack_set_and_clear", {});
   yytk->CallBuiltin("draw_set_color", {color});
-  yytk->CallGameScript("gml_Script_draw_starburst_3d", {0, 0, 0, power, mid_power});
+  yytk->CallGameScript("gml_Script_draw_starburst_3d", {0, 0, 0, power, mid_power, 1, 10, rng});
 }
 
 void DrawPullIndexInWorld(size_t i, RValue &renderers, RValue &shader3dflatsprite, RValue &sprItems)
@@ -869,6 +911,33 @@ void DrawPullIndexInWorld(size_t i, RValue &renderers, RValue &shader3dflatsprit
   yytk->CallBuiltin("shader_set", {shader3dflatsprite});
   yytk->CallBuiltin("draw_sprite_ext", {sprItems, drawer.draw_index ? drawer.index : 6, -32, -32, 1, 1, 0, 0xFFFFFF, 1});
   yytk->CallBuiltin("matrix_set", {2, Utils::GlobalGet("__identity_matrix")});
+}
+
+void DrawTextPgramScreen(double x, double y, const RValue &text_str, double scale, double color)
+{
+  yytk->CallGameScript("gml_Script_draw_text_pgram", {yytk->CallBuiltin("display_get_width", {}).ToDouble() * x, yytk->CallBuiltin("display_get_height", {}).ToDouble() * y, text_str, scale, 0.25,  0, 0, color});
+}
+
+void DrawTextScreen(double x, double y, const char *text_str, double scale, double color)
+{
+  yytk->CallBuiltin("draw_set_color", {color});
+  yytk->CallBuiltin("draw_set_halign", {1});
+  yytk->CallBuiltin("draw_set_valign", {1});
+  yytk->CallBuiltin("draw_text_transformed", {yytk->CallBuiltin("display_get_width", {}).ToDouble() * x, yytk->CallBuiltin("display_get_height", {}).ToDouble() * y, text_str, scale, 1, 0});
+}
+
+void DrawResultText()
+{
+  yytk->CallBuiltin("shader_reset", {});
+  GachaResult &result = gacha_pull[gacha_scene_drawing];
+  if (text_display.press_to_continue) {
+    double x = text_display.continue_time <= 1 ? text_display.continue_time : sin((text_display.continue_time - 0.5) * std::numbers::pi) / 4 + 0.75;
+    yytk->CallBuiltin("draw_set_alpha", {x});
+    text_display.continue_time += (1. / 60.);
+    std::string button = yytk->CallGameScript("gml_Script_buttonlist_to_string", {Utils::GlobalGet("confirm_buttons")}).ToString();
+    DrawTextScreen(0.5, 0.9, ("< Press " + button + " to Continue >").c_str(), 1, 0xFFFFFF);
+    yytk->CallBuiltin("draw_set_alpha", {1.0});
+  }
 }
 
 void RenderScene()
@@ -891,8 +960,12 @@ void RenderScene()
   if (impact.drawing) {
     yytk->CallBuiltin("gpu_set_ztestenable", {false});
     yytk->CallBuiltin("shader_set", {shader3dflatsprite});
-    DrawStarburst(impact.pos.x, impact.pos.y, impact.pos.z, impact.color2, 200, 100);
-    DrawStarburst(impact.pos.x, impact.pos.y, impact.pos.z, impact.color, 140, 70);
+    double bg_pow = impact.color2 > -1 ? 180 : 70;
+    DrawStarburst(impact.pos.x, impact.pos.y, impact.pos.z, 0, bg_pow, bg_pow / 2, -2);
+    if (impact.color2 > -1)
+      DrawStarburst(impact.pos.x, impact.pos.y, impact.pos.z, impact.color2, 200, 100);
+    if (impact.color > -1)
+      DrawStarburst(impact.pos.x, impact.pos.y, impact.pos.z, impact.color, 140, 70);
     DrawStarburst(impact.pos.x, impact.pos.y, impact.pos.z, 0xFFFFFF, 90, 45);
     DrawStarburst(impact.pos.x, impact.pos.y, impact.pos.z, 0xF0F0F0, 40, 20);
   }
@@ -998,6 +1071,7 @@ void DoGachaPull(GachaType &gacha, int pull_count)
   yytk->CallGameScript("gml_Script_SceneLayerIn", {});
   if (gacha_scene_progress == gacha_scene_progress_start)
     yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "data_save_level")});
+  yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "savedata_save")});
   yytk->CallGameScript("gml_Script_Fade", {0, 1, 0.25, 1, -3});
   yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "menu_level_out_all")});
   yytk->CallGameScript("gml_Script_LevelTransition", {gacha.level_name, -3});
@@ -1005,7 +1079,7 @@ void DoGachaPull(GachaType &gacha, int pull_count)
   for (int i = 0; i < pull_count; i++) {
     GachaResult &result = gacha_pull[i];
     yytk->CallGameScript("gml_Script_WaitForTween", {1}); // My Scene - Gacha Index
-    yytk->CallGameScript("gml_Script_WaitForInput", {result.rarity >= 4});
+    yytk->CallGameScript("gml_Script_WaitForInput", {result.rarity < 4});
   }
   yytk->CallGameScript("gml_Script_WaitForTween", {1}); // My Scene - Post
   RValue menu = Utils::InstanceGet(global, "mn_gacha");
@@ -1015,7 +1089,6 @@ void DoGachaPull(GachaType &gacha, int pull_count)
   yytk->CallGameScript("gml_Script_Fade", {0, 1, 0.25, 1, -3});
   yytk->CallGameScript("gml_Script_Wait", {0.27});
   yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "data_load_level")});
-  yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "savedata_save")});
   yytk->CallGameScript("gml_Script_Wait", {0.1});
   yytk->CallGameScript("gml_Script_Fade", {0, 0, 0.25, 1, -3});
   yytk->CallGameScript("gml_Script_SceneEnd", {});
@@ -1287,6 +1360,8 @@ void OpenGachaRates()
 
 void DrawGachaMenu()
 {
+  if (do_scene_render)
+    DrawResultText();
   if (!Utils::GlobalGet("menu_open").ToBoolean())
     return;
   RValue menu = Utils::GlobalGet("mn_gacha");
@@ -1500,6 +1575,7 @@ void GachaHooks()
   RequestHook(NULL, "gml_Script_beastie_specie_in_party_array", "IW beastie_specie_in_party_array", BeastieSpecieInPartyArray, reinterpret_cast<PVOID *>(&beastieSpecieInPartyArray));
   RequestHook(NULL, "gml_Script_beastie_specie_in_party", "IW beastie_specie_in_party", BeastieSpecieInParty, reinterpret_cast<PVOID *>(&beastieSpecieInParty));
   RequestHook(NULL, "gml_Script_anon@700@gml_Object_objEvolvetrickies_Other_10", "IW trickies", TrickiesCheck, reinterpret_cast<PVOID *>(&trickiesCheck));
+  RequestHook(NULL, "gml_Script_data_update_player_pos", "IW player_pos", DataUpdatePlayerPos, reinterpret_cast<PVOID *>(&dataUpdatePlayerPos));
 
   RequestHook(NULL, "gml_Script_SceneEnd", "IW SceneEnd", SceneEnd, reinterpret_cast<PVOID *>(&sceneEnd));
   RequestHook(NULL, "gml_Script_WaitForTween", "IW WaitForTween", WaitForTween, reinterpret_cast<PVOID *>(&waitForTween));
