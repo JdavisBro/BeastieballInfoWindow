@@ -203,7 +203,7 @@ struct DropRates {
   std::vector<BeastieDrop> drops_4;
   std::vector<ItemDrop> drops_other;
   double weight_5 = 0.02;
-  double weight_4 = 0.2;
+  double weight_4 = 0.98;
   double weight_other = 0.78;
 };
 
@@ -552,17 +552,35 @@ struct CameraLocation {
   double x;
   double y;
   double z;
+  double pan_angle = 0;
   double height_angle = 80;
-  double dist = -200;
+  double dist = -100;
 };
 
-struct ItemDrawer {
+const int pan_angle_default_turn = -20;
+
+struct Vec3 {
   double x;
   double y;
   double z;
+};
+
+struct ItemDrawer {
+  Vec3 pos;
+  Vec3 middle_pos;
+  Vec3 end_pos;
   int index;
   bool draw_index = false;
-  double flip_progress = 0;
+  double rotation_x = 0;
+  double rotation_y = 0;
+  double rotation_z = 0;
+};
+
+struct BeastieDrawer {
+  Vec3 middle_pos;
+  Vec3 end_pos;
+  double angle = 0;
+  std::string anim = "spike";
 };
 
 std::vector<CameraLocation> camera_locations;
@@ -570,15 +588,31 @@ const double tween_speed = 1; // per second
 double tween_progress = 0;
 
 std::vector<ItemDrawer> item_drawers;
+std::vector<BeastieDrawer> beastie_drawers;
 
-double Interp(double from, double to, double x)
+double EaseInSin(double from, double to, double x)
+{
+  return from + (to - from) * (1 - cos(x * std::numbers::pi / 2));
+}
+
+double EaseOutSin(double from, double to, double x)
+{
+  return from + (to - from) * sin(x * std::numbers::pi / 2);
+}
+
+double Linear(double from, double to, double x)
 {
   return from + (to - from) * x;
 }
 
+inline double Interp(double from, double to, double x)
+{
+  return EaseOutSin(from, to, x);
+}
+
 CameraLocation CameraInterp(CameraLocation &from, CameraLocation &to, double x)
 {
-  return {Interp(from.x, to.x, x), Interp(from.y, to.y, x), Interp(from.z, to.z, x), Interp(from.height_angle, to.height_angle, x), Interp(from.dist, to.dist, x)};
+  return {Interp(from.x, to.x, x), Interp(from.y, to.y, x), Interp(from.z, to.z, x), Interp(from.pan_angle, to.pan_angle, x), Interp(from.height_angle, to.height_angle, x), Interp(from.dist, to.dist, x)};
 }
 
 CameraLocation scene_camera;
@@ -586,13 +620,23 @@ CameraLocation scene_camera;
 void SetCameraLocation(CameraLocation camera, const RValue &scene_manager)
 {
   scene_camera = camera;
-  DbgPrint("set camera %f %f %f", camera.x, camera.y, camera.z);
   RValue shot = Utils::InstanceGet(scene_manager, "shot_overworld");
   shot["look_x"] = camera.x;
   shot["look_y"] = camera.y;
   shot["look_z"] = camera.z;
+  shot["pan_angle"] = camera.pan_angle;
   shot["height_angle"] = camera.height_angle;
   shot["dist"] = camera.dist;
+}
+
+Vec3 Vec3EaseInSin(Vec3 from, Vec3 to, double x)
+{
+  return {EaseInSin(from.x, to.x, x), EaseInSin(from.y, to.y, x), EaseInSin(from.z, to.z, x)};
+}
+
+Vec3 Vec3Interp(Vec3 from, Vec3 to, double x)
+{
+  return {Interp(from.x, to.x, x), Interp(from.y, to.y, x), Interp(from.z, to.z, x)};
 }
 
 bool MySceneFrame()
@@ -609,6 +653,7 @@ bool MySceneFrame()
     camera_locations.clear();
     camera_locations.resize(gacha_pull_size + 2);
     item_drawers.resize(gacha_pull_size);
+    beastie_drawers.resize(gacha_pull_size);
     RValue item_dic = Utils::GlobalGet("item_dic");
     for (int i = 0; i < 2; i++)
     {
@@ -616,26 +661,55 @@ bool MySceneFrame()
       camera_locations[i] = {node["x"].ToDouble(), node["y"].ToDouble(), node["z"].ToDouble()};
       DbgPrint("loc %i - x %f - y %f - z %f", i, camera_locations[i].x, camera_locations[i].y, camera_locations[i].z);
     }
+    Vec3 start_pos = {camera_locations[1].x, camera_locations[1].y, camera_locations[1].z};
     RValue global_renderers = Utils::GlobalGet("char_renderers");
     for (size_t i = 0; i < gacha_pull_size; i++) {
       GachaResult &result = gacha_pull[i];
       RValue node = yytk->CallGameScript("gml_Script_levelnode_find", {RValue("gacha_location" + std::to_string(i))});
+      CameraLocation prev_location = camera_locations[i + 1];
       CameraLocation camera_location = {node["x"].ToDouble(), node["y"].ToDouble(), node["z"].ToDouble()};
+      if (prev_location.pan_angle == 0) {
+        camera_location.pan_angle = prev_location.pan_angle > 0 ? pan_angle_default_turn : -pan_angle_default_turn;
+      }
+      else {
+        camera_location.pan_angle = camera_location.x > prev_location.x ? pan_angle_default_turn : -pan_angle_default_turn;
+      }
+      Vec3 pos = {camera_location.x, camera_location.y, camera_location.z};
+      double dir = camera_location.x > prev_location.x ? -1 : 1;
+      camera_location.x += 100 * dir;
+      camera_location.y -= 10;
       camera_locations[i + 2] = camera_location;
+      item_drawers[i] = {start_pos, {start_pos.x + (pos.x - start_pos.x) * 0.75, start_pos.y + (pos.y - start_pos.y) * 0.75, pos.z + 400}, pos, 6};
       DbgPrint("loc %i - x %f - y %f - z %f", i + 2, camera_locations[i + 2].x, camera_locations[i + 2].y, camera_locations[i + 2].z);
       if (result.type == GACHA_BEASTIE) {
         RValue renderer = yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {R"({"_": "class_beastie_renderer"})"})});
         RValue beastie = yytk->CallGameScript("gml_Script_char_find_by_pid", {RValue(result.beastie.pid)});
-        renderer["x"] = camera_location.x;
-        renderer["y"] = camera_location.y;
-        renderer["z"] = camera_location.z;
+        RValue anim_data = Utils::CallStructMethod(beastie, "anim_data", {4});
+        renderer["x"] = 0;
+        renderer["y"] = 0;
+        renderer["z"] = -1000;
+        BeastieDrawer beastie_pos;
+        double scale = renderer["scale"].ToDouble();
+        dir = -dir;
+        renderer["image_xscale"] = dir * scale;
+        double ang = abs(fmod(360 + camera_location.pan_angle + 90, 360));
+        DbgPrint("%f, %f", ang, camera_location.pan_angle);
+        beastie_pos.middle_pos = {pos.x - 1200 * cos(ang), pos.y - 1200 * sin(ang), 0};
+        double anim_x = anim_data["x"].ToDouble() * scale;
+        double anim_y = anim_x * sin(ang) + (dir < 0 ? 40 : 0);
+        anim_x = anim_x * cos(ang);
+        double anim_z = anim_data["y"].ToDouble() * scale;
+        beastie_pos.end_pos = {pos.x - anim_x, pos.y - anim_y, pos.z + anim_z};
+        beastie_pos.angle = anim_data["angle"].ToDouble() * dir;
+        beastie_pos.anim = anim_data["anim"].ToString();
         Utils::CallStructMethod(renderer, "set_char", {beastie});
         renderers[i] = renderer;
         yytk->CallBuiltin("array_push", {global_renderers, renderer});
+        beastie_drawers[i] = beastie_pos;
       }
       else {
         RValue item = yytk->CallBuiltin("ds_map_find_value", {item_dic, RValue(result.item.id)});
-        item_drawers[i] = {camera_location.x, camera_location.y, camera_location.z, item["img"].ToInt32()};
+        item_drawers[i].index = item["img"].ToInt32();
       }
     }
     Utils::GlobalSet("GACHA_SCENE_RENDERERS", renderers);
@@ -647,7 +721,19 @@ bool MySceneFrame()
   switch (gacha_scene_progress) {
   case GACHA_SCENE_BEGIN: {
     SetCameraLocation(CameraInterp(camera_locations[0], camera_locations[1], tween_progress / 3), scene_manager);
-    if (tween_progress >= 3 || scene_skipping) {
+    Vec3 start_pos = {camera_locations[1].x, camera_locations[1].y, camera_locations[1].z - 20};
+    if (scene_skipping) tween_progress = 3;
+    if (tween_progress >= 1 && tween_progress < 2) {
+      for (ItemDrawer &item : item_drawers) {
+        item.pos = Vec3Interp(start_pos, item.middle_pos, tween_progress - 1);
+      }
+    }
+    if (tween_progress >= 2) {
+      for (ItemDrawer &item : item_drawers) {
+        item.pos = Vec3Interp(item.middle_pos, item.end_pos, min(3, tween_progress) - 2);
+      }
+    }
+    if (tween_progress >= 3) {
       tween_progress = 0;
       gacha_scene_progress += 1;
       return true;
@@ -660,27 +746,35 @@ bool MySceneFrame()
   }
   default: {
     // gacha index
-    SetCameraLocation(CameraInterp(camera_locations[gacha_scene_progress + 1], camera_locations[gacha_scene_progress + 2], min(1, tween_progress)), scene_manager);
+    CameraLocation camera_location = camera_locations[gacha_scene_progress + 2];
+    SetCameraLocation(CameraInterp(camera_locations[gacha_scene_progress + 1], camera_location, min(1, tween_progress)), scene_manager);
     GachaResult &result = gacha_pull[gacha_scene_progress];
     bool scene_skipping_actually = scene_skipping && result.rarity < 4;
     if (scene_skipping_actually != scene_skipping)
       Utils::InstanceSet(scene_manager, "scene_skipping", scene_skipping_actually);
+    ItemDrawer &drawer = item_drawers[gacha_scene_progress];
     if (result.type == GACHA_BEASTIE) {
       RValue renderer = renderers[gacha_scene_progress];
-      if (tween_progress > 2 || scene_skipping_actually)
-        yytk->CallGameScript("gml_Script_char_animation", {renderer, "good"});
+      BeastieDrawer &beastie_pos = beastie_drawers[gacha_scene_progress];
+      double prog = max(0, min(1, tween_progress - 2));
+      Vec3 pos = Vec3EaseInSin(beastie_pos.middle_pos, beastie_pos.end_pos, prog);
+      renderer["x"] = pos.x;
+      renderer["y"] = pos.y;
+      renderer["z"] = pos.z;
+      renderer["image_angle"] = EaseInSin(0, beastie_pos.angle, prog);
+      if (tween_progress > 2.8)
+        yytk->CallGameScript("gml_Script_char_animation", {renderer, RValue(beastie_pos.anim)});
     }
     else {
-      ItemDrawer &drawer = item_drawers[gacha_scene_progress];
-      double new_prog = 0;
-      if (tween_progress < 2 && !scene_skipping_actually) {
-        new_prog = (tween_progress - 1.5) * 2;
+      double new_rot_x = 0;
+      if (tween_progress < 1.75 && !scene_skipping_actually) {
+        new_rot_x = (tween_progress - 1.5) * 4;
       }
       else {
         drawer.draw_index = true;
-        new_prog = 3 + (tween_progress - 2) * 2;
+        new_rot_x = 3 + (tween_progress - 1.75) * 4;
       }
-      drawer.flip_progress = min(4, max(0, new_prog));
+      drawer.rotation_x = min(4, max(0, new_rot_x)) / 4;
     }
     if (tween_progress > 5 || scene_skipping_actually) {
       tween_progress = 0;
@@ -711,15 +805,13 @@ void RenderSceneCharRenderers()
       RValue renderer = renderers[i];
       Utils::CallStructMethod(renderer, "draw", {});
     }
-    else {
-      ItemDrawer &drawer = item_drawers[i];
-      yytk->CallGameScript("gml_Script_mstack_rotate_ext", {180 + drawer.flip_progress * 90, 0, 0});
-      yytk->CallGameScript("gml_Script_mstack_translate", {drawer.x, drawer.y, drawer.z});
-      yytk->CallGameScript("gml_Script_mstack_set_and_clear", {});
-      yytk->CallBuiltin("shader_set", {yytk->CallBuiltin("asset_get_index", {"shader3DBillboard"})});
-      yytk->CallBuiltin("draw_sprite_ext", {sprItems, drawer.draw_index ? drawer.index : 6, 32, 32, 1, 1, 180, 0xFFFFFF, 1});
-      yytk->CallBuiltin("matrix_set", {2, Utils::GlobalGet("__identity_matrix")});
-    }
+    ItemDrawer &drawer = item_drawers[i];
+    yytk->CallGameScript("gml_Script_mstack_rotate_ext", {scene_camera.height_angle + drawer.rotation_x * 360, drawer.rotation_y * 360, scene_camera.pan_angle + drawer.rotation_z * 360});
+    yytk->CallGameScript("gml_Script_mstack_translate", {drawer.pos.x, drawer.pos.y, drawer.pos.z});
+    yytk->CallGameScript("gml_Script_mstack_set_and_clear", {});
+    yytk->CallBuiltin("shader_set", {yytk->CallBuiltin("asset_get_index", {"shader3DFlatSprite"})});
+    yytk->CallBuiltin("draw_sprite_ext", {sprItems, drawer.draw_index ? drawer.index : 6, -32, -32, 1, 1, 0, 0xFFFFFF, 1});
+    yytk->CallBuiltin("matrix_set", {2, Utils::GlobalGet("__identity_matrix")});
   }
 }
 
