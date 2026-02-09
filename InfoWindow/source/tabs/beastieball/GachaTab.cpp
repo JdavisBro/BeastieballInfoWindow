@@ -500,17 +500,35 @@ RValue &DataUpdatePlayerPos(CInstance *Self, CInstance *Other, RValue &ReturnVal
   return ReturnValue;
 }
 
+bool is_encounter = false;
+
+PFUNC_YYGMLScript beastieEncounterGenerate = nullptr;
+RValue &BeastieEncounterGenerate(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  is_encounter = true;
+  beastieEncounterGenerate(Self, Other, ReturnValue, numArgs, Args);
+  is_encounter = false;
+  return ReturnValue;
+}
+
 PFUNC_YYGMLScript classBeastieCanEvolve = nullptr;
 RValue &ClassBeastieCanEvolve(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
-  ReturnValue = RValue(CheckMetamorph(Self->ToRValue()) ? 0 : -1);
+  if (is_encounter || Utils::GlobalGet("ROGUELIKE").ToBoolean())
+    classBeastieCanEvolve(Self, Other, ReturnValue, numArgs, Args);
+  else
+    ReturnValue = RValue(CheckMetamorph(Self->ToRValue()) ? 0 : -1);
   return ReturnValue;
 }
 
 PFUNC_YYGMLScript classBeastieWaitingToMorph = nullptr;
 RValue &ClassBeastieWaitingToMorph(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
-  ReturnValue = RValue(CheckMetamorph(Self->ToRValue()));
+
+  if (is_encounter || Utils::GlobalGet("ROGUELIKE").ToBoolean())
+    classBeastieWaitingToMorph(Self, Other, ReturnValue, numArgs, Args);
+  else
+    ReturnValue = RValue(CheckMetamorph(Self->ToRValue()));
   return ReturnValue;
 }
 
@@ -732,6 +750,13 @@ bool MySceneFrame()
       if (result.type == GACHA_BEASTIE) {
         RValue renderer = yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {R"({"_": "class_beastie_renderer"})"})});
         RValue beastie = yytk->CallGameScript("gml_Script_char_find_by_pid", {RValue(result.beastie.pid)});
+        DbgPrint("m %d", result.beastie.metamorph);
+        if (result.beastie.metamorph >= 0) {
+          while (Utils::CallStructMethod(beastie, "can_evolve", {}).ToDouble() > -1) {
+            beastie = yytk->CallGameScript("gml_Script_ElephantDuplicate", {beastie});
+            Utils::CallStructMethod(beastie, "evolve", {result.beastie.metamorph - 1});
+          }
+        }
         RValue anim_data = Utils::CallStructMethod(beastie, "anim_data", {4});
         renderer["x"] = 0;
         renderer["y"] = 0;
@@ -1570,6 +1595,7 @@ void GachaHooks()
   RequestHook("gml_Script_tame_adjust", "@class_beastie", "IW tame_adjust", TameAdjust, reinterpret_cast<PVOID *>(&tameAdjust));
   RequestHook("gml_Script_ev_adjust", "@class_beastie", "IW ev_adjust", EvAdjust, reinterpret_cast<PVOID *>(&evAdjust));
   RequestHook("gml_Script_tame_rating_string", "@class_beastie", "IW class_beastie tame_rating_string", ClassBeastieTameRatingString, reinterpret_cast<PVOID *>(&classBeastieTameRatingString));
+  RequestHook(NULL, "gml_Script_beastie_encounter_generate", "IW beastie_encounter_generate", BeastieEncounterGenerate, reinterpret_cast<PVOID *>(&beastieEncounterGenerate));
   RequestHook("gml_Script_can_evolve", "@class_beastie", "IW class_beastie can_evolve", ClassBeastieCanEvolve, reinterpret_cast<PVOID *>(&classBeastieCanEvolve));
   RequestHook("gml_Script_waiting_to_morph", "@class_beastie", "IW class_beastie waiting_to_morph", ClassBeastieWaitingToMorph, reinterpret_cast<PVOID *>(&classBeastieWaitingToMorph));
   RequestHook(NULL, "gml_Script_beastie_specie_in_party_array", "IW beastie_specie_in_party_array", BeastieSpecieInPartyArray, reinterpret_cast<PVOID *>(&beastieSpecieInPartyArray));
