@@ -600,6 +600,7 @@ struct ItemDrawer {
   Vec3 middle_pos;
   Vec3 end_pos;
   int index;
+  double dir = 1;
   bool draw_index = false;
   double rotation_x = 0;
   double rotation_y = 0;
@@ -628,9 +629,11 @@ struct ImpactPos {
 
 struct PullTextDisplay {
   double name = 0;
+  std::string name_string = "";
+  double rarity = 0;
   double coached = 0;
-  bool press_to_continue = 0;
-  double continue_time;
+  bool press_to_continue = false;
+  double continue_time = 0;
 };
 
 PullTextDisplay text_display;
@@ -752,7 +755,7 @@ bool MySceneFrame()
       camera_location.x += 100 * dir;
       camera_location.y -= 10;
       camera_locations[i + 2] = camera_location;
-      item_drawers[i] = {start_pos, {start_pos.x + (pos.x - start_pos.x) * 0.75, start_pos.y + (pos.y - start_pos.y) * 0.75, pos.z + 400}, pos, 6};
+      item_drawers[i] = {start_pos, {start_pos.x + (pos.x - start_pos.x) * 0.75, start_pos.y + (pos.y - start_pos.y) * 0.75, pos.z + 400}, pos, 6, dir};
       if (result.type == GACHA_BEASTIE) {
         RValue renderer = yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {R"({"_": "class_beastie_renderer"})"})});
         RValue beastie = yytk->CallGameScript("gml_Script_char_find_by_pid", {RValue(result.beastie.pid)});
@@ -866,11 +869,11 @@ bool MySceneFrame()
         impact.drawing = false;
       if (tween_progress >= 2) {
         if (!impact.drawing) {
+          yytk->CallGameScript("gml_Script_container_play", {"sfx_beastie_high_five"});
           yytk->CallGameScript("gml_Script_eff_raylines", {0.6, 0.5});
           Utils::InstanceSet(scene_manager, "screen_shake_amt", 5);
           Utils::InstanceSet(scene_manager, "screen_shake_time", 0.3);
         }
-        text_display.name = 1;
         impact.pos = drawer.end_pos;
         impact.color = beastie_pos.color;
         impact.color2 = beastie_pos.color2;
@@ -901,7 +904,29 @@ bool MySceneFrame()
       }
       drawer.rotation_x = min(4, max(0, new_rot_x)) / 4;
     }
-    if (tween_progress > 5) {
+    double end_progress = 2.85 + result.rarity;
+    if (tween_progress >= 2.5) {
+      if (yytk->CallGameScript("gml_Script_buttonlist_pressed_affirmative", {}).ToBoolean())
+        tween_progress = end_progress;
+      double name_prog = (tween_progress - 2.5) * 4;
+      if (name_prog >= 1 && text_display.name < 1) {
+        Utils::InstanceSet(scene_manager, "screen_shake_amt", 4);
+        Utils::InstanceSet(scene_manager, "screen_shake_time", 0.2);
+      }
+      text_display.name = min(1, name_prog);
+      if (result.type == GACHA_BEASTIE)
+        text_display.name_string = Utils::CallStructMethod(renderers[gacha_scene_progress]["char"], "displayname", {}).ToString();
+      else
+        text_display.name_string = yytk->CallBuiltin("ds_map_find_value", {Utils::GlobalGet("item_dic"), RValue(result.item.id)})["name"].ToString();
+      double rarity_prog = max(0, tween_progress - 2.85);
+      if (floor(text_display.rarity) < floor(rarity_prog) && result.rarity >= floor(rarity_prog)) {
+        yytk->CallGameScript("gml_Script_container_play", {"sfx_beastie_high_five"});
+        Utils::InstanceSet(scene_manager, "screen_shake_amt", 4);
+        Utils::InstanceSet(scene_manager, "screen_shake_time", 0.2 + 0.1 * floor(rarity_prog));
+      }
+      text_display.rarity = min((double)result.rarity, rarity_prog);
+    }
+    if (tween_progress >= end_progress) {
       text_display.press_to_continue = true;
       tween_progress = 0;
       gacha_scene_progress += 1;
@@ -947,9 +972,19 @@ void DrawPullIndexInWorld(size_t i, RValue &renderers, RValue &shader3dflatsprit
   }
 }
 
-void DrawTextPgramScreen(double x, double y, const RValue &text_str, double scale, double color)
+RValue Scribble(const RValue &text)
 {
-  yytk->CallGameScript("gml_Script_draw_text_pgram", {yytk->CallBuiltin("display_get_width", {}).ToDouble() * x, yytk->CallBuiltin("display_get_height", {}).ToDouble() * y, text_str, scale, 0.25,  0, 0, color});
+  return yytk->CallGameScript("gml_Script_scribble", {RValue(text)});
+}
+
+RValue ScribbleCentered(const std::string &text)
+{
+  return yytk->CallGameScript("gml_Script_scribble", {RValue(scentered + text)});
+}
+
+void DrawTextPgramScreen(double x, double y, const RValue &text_str, double scale, double color, double offset_x = 0)
+{
+  yytk->CallGameScript("gml_Script_draw_text_pgram", {yytk->CallBuiltin("display_get_width", {}).ToDouble() * x + offset_x, yytk->CallBuiltin("display_get_height", {}).ToDouble() * y, text_str, scale, 0.25,  0, 0, color});
 }
 
 void DrawTextScreen(double x, double y, const char *text_str, double scale, double color)
@@ -960,10 +995,15 @@ void DrawTextScreen(double x, double y, const char *text_str, double scale, doub
   yytk->CallBuiltin("draw_text_transformed", {yytk->CallBuiltin("display_get_width", {}).ToDouble() * x, yytk->CallBuiltin("display_get_height", {}).ToDouble() * y, text_str, scale, 1, 0});
 }
 
+const double result_text_start = 0.5 - 0.2;
+const double result_rarity_start = result_text_start + 0.06;
+const double ball_size = 32;
+
 void DrawResultText()
 {
   yytk->CallBuiltin("shader_reset", {});
   GachaResult &result = gacha_pull[gacha_scene_drawing];
+  ItemDrawer &drawer = item_drawers[gacha_scene_drawing];
   if (text_display.press_to_continue) {
     double x = text_display.continue_time <= 1 ? text_display.continue_time : sin((text_display.continue_time - 0.5) * std::numbers::pi) / 4 + 0.75;
     yytk->CallBuiltin("draw_set_alpha", {x});
@@ -971,6 +1011,53 @@ void DrawResultText()
     std::string button = yytk->CallGameScript("gml_Script_buttonlist_to_string", {Utils::GlobalGet("confirm_buttons")}).ToString();
     DrawTextScreen(0.5, 0.9, ("< Press " + button + " to Continue >").c_str(), 1, 0xFFFFFF);
     yytk->CallBuiltin("draw_set_alpha", {1.0});
+  }
+  double x_begin = (0.5 + 0.25 * drawer.dir);
+  if (text_display.name > 0) {
+    RValue name = ScribbleCentered(text_display.name_string);
+    double prog = (text_display.name - 0.5) * 2;
+    Utils::CallStructMethod(name, "scale", {EaseInSin(1.5, 1, max(0, prog))});
+    DrawTextPgramScreen(x_begin - (0.05 * EaseInSin(1, 0, max(0, prog))), result_text_start, name, 1, 0xFFFFFF);
+  }
+  if (text_display.rarity > 0.75) {
+    RValue ball = yytk->CallBuiltin("asset_get_index", {"sprBall"});
+    double pgram_width = ball_size * (result.rarity + 1);
+    double pgram_height = ball_size * 1.25;
+    double x = yytk->CallBuiltin("display_get_width", {}).ToDouble() * x_begin - pgram_width / 2;
+    double y = yytk->CallBuiltin("display_get_height", {}).ToDouble() * result_rarity_start;
+    {
+      double prog = max(0, min(1, (text_display.rarity - 0.75) * 4));
+      yytk->CallBuiltin("draw_set_color", {0});
+      yytk->CallGameScript("gml_Script_draw_pgram", {x, y - pgram_height / 2, EaseInSin(x + pgram_height * 0.25, x + pgram_width, prog), y + pgram_height / 2});
+    }
+    for (int i = 0; i < text_display.rarity && i < result.rarity; i++) {
+      double prog = min(1, (text_display.rarity - i - 0.75) * 4);
+      double ball_x = (drawer.dir > 0 ? x + pgram_width : x) + (ball_size * (i + 1) * -drawer.dir);
+      double rot = (prog < 1 ? EaseInSin(280, 360, prog) : text_display.rarity * 360) * drawer.dir;
+      if (prog > 0) {
+        double x_pos = Linear(ball_x + 70 * drawer.dir, ball_x, prog);
+        double y_pos = EaseInSin(y - 80, y, prog);
+        if (i >= 3 && i == result.rarity - 1 && floor(text_display.rarity) - 1 == i) {
+          BeastieDrawer &beastie_pos = beastie_drawers[gacha_scene_drawing];
+          yytk->CallBuiltin("draw_set_color", {0});
+          yytk->CallGameScript("gml_Script_draw_starburst", {x_pos, y_pos, ball_size * 0.9});
+          yytk->CallBuiltin("draw_set_color", {beastie_pos.color2});
+          yytk->CallGameScript("gml_Script_draw_starburst", {x_pos, y_pos, ball_size * 1});
+          yytk->CallBuiltin("draw_set_color", {beastie_pos.color});
+          yytk->CallGameScript("gml_Script_draw_starburst", {x_pos, y_pos, ball_size * 0.8});
+        }
+        yytk->CallBuiltin("draw_set_color", {0xFFFFFF});
+        yytk->CallBuiltin("draw_circle", {x_pos - 1, y_pos - 1, ball_size * 0.5, false});
+        yytk->CallBuiltin("draw_sprite_ext", {ball, 2, x_pos, y_pos, ball_size / 256, ball_size / 256, rot, 0xFFFFFF, 1});
+      }
+    }
+    if (text_display.rarity >= result.rarity) {
+      RValue delta_rv;
+      yytk->GetBuiltin("delta_time", nullptr, NULL_INDEX, delta_rv);
+      RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
+      double delta = delta_rv.ToDouble() / 1'000'000;
+      text_display.rarity += delta;
+    }
   }
 }
 
@@ -1177,11 +1264,6 @@ void DrawSprites(std::vector<SpritePos> &sprites, bool after_beasties)
       sprite.x_scale, sprite.y_scale, sprite.rotation, 0xFFFFFF, 1.0
       });
   }
-}
-
-RValue Scribble(const RValue &text)
-{
-  return yytk->CallGameScript("gml_Script_scribble", {RValue(text)});
 }
 
 double DrawMenuButton(double x, double y, const RValue &text, double selection_x, double selection_y, const RValue &menu, bool selected, bool hover_button = false)
