@@ -607,8 +607,12 @@ struct ItemDrawer {
 };
 
 struct BeastieDrawer {
+  Vec3 pos;
   Vec3 middle_pos;
   Vec3 end_pos;
+  double x;
+  double y;
+  double dir = 1;
   double angle = 0;
   std::string anim = "spike";
   double color = 0xFFFFFF;
@@ -753,7 +757,7 @@ bool MySceneFrame()
         RValue renderer = yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {R"({"_": "class_beastie_renderer"})"})});
         RValue beastie = yytk->CallGameScript("gml_Script_char_find_by_pid", {RValue(result.beastie.pid)});
         DbgPrint("m %d", result.beastie.metamorph);
-        if (result.beastie.metamorph >= 0) {
+        if (result.beastie.metamorph > 0) {
           while (Utils::CallStructMethod(beastie, "can_evolve", {}).ToDouble() > -1) {
             beastie = yytk->CallGameScript("gml_Script_ElephantDuplicate", {beastie});
             Utils::CallStructMethod(beastie, "evolve", {result.beastie.metamorph - 1});
@@ -763,24 +767,23 @@ bool MySceneFrame()
         renderer["x"] = 0;
         renderer["y"] = 0;
         renderer["z"] = -1000;
+        Utils::CallStructMethod(renderer, "set_char", {beastie});
         BeastieDrawer beastie_pos;
         double scale = renderer["scale"].ToDouble();
         dir = -dir;
         renderer["image_xscale"] = dir * scale;
-        double ang = abs(fmod(360 + camera_location.pan_angle + 90, 360));
-        beastie_pos.middle_pos = {pos.x - 2000 * cos(ang), pos.y - 2000 * sin(ang) , 0};
-        double anim_x = anim_data["x"].ToDouble() * scale;
-        double anim_y = anim_x * sin(ang) + (dir < 0 ? 40 : 0);
-        anim_x = anim_x * cos(ang);
-        double anim_z = anim_data["y"].ToDouble() * scale;
-        beastie_pos.end_pos = {pos.x - anim_x, pos.y - anim_y, pos.z + anim_z};
+        beastie_pos.x = anim_data["x"].ToDouble() * scale;
+        beastie_pos.y = anim_data["y"].ToDouble() * scale;
+        beastie_pos.dir = dir;
+        double ang = (camera_location.pan_angle + 90 + (dir < 0 ? 180 : 0)) / 180 * std::numbers::pi;
+        beastie_pos.middle_pos = {pos.x - 2000 * sin(ang), pos.y - 2000 * cos(ang) , 0};
+        beastie_pos.end_pos = pos;
         double beastie_angle = anim_data["angle"].ToDouble();
         beastie_pos.angle = (beastie_angle > 180 ? beastie_angle - 360 : beastie_angle) * dir;
         beastie_pos.anim = anim_data["anim"].ToString();
         RValue type = Utils::CallStructMethod(beastie, "specie_data", {})["type_focus"];
         beastie_pos.color = yytk->CallGameScript("gml_Script_type_color", {type}).ToDouble();
         beastie_pos.color2 = yytk->CallGameScript("gml_Script_type_colord", {type}).ToDouble();
-        Utils::CallStructMethod(renderer, "set_char", {beastie});
         renderers[i] = renderer;
         yytk->CallBuiltin("array_push", {global_renderers, renderer});
         beastie_drawers[i] = beastie_pos;
@@ -820,6 +823,7 @@ bool MySceneFrame()
   }
   case GACHA_SCENE_POST: {
     impact.drawing = false;
+    text_display = {};
     gacha_scene_drawing = gacha_scene_progress_start;
     if (scene_skipping) {
       tween_progress = 2.1;
@@ -854,10 +858,7 @@ bool MySceneFrame()
       RValue renderer = renderers[gacha_scene_progress];
       BeastieDrawer &beastie_pos = beastie_drawers[gacha_scene_progress];
       double prog = max(0, min(1, tween_progress - 1));
-      Vec3 pos = Vec3EaseInSin(beastie_pos.middle_pos, beastie_pos.end_pos, prog);
-      renderer["x"] = pos.x;
-      renderer["y"] = pos.y;
-      renderer["z"] = pos.z;
+      beastie_pos.pos = Vec3EaseInSin(beastie_pos.middle_pos, beastie_pos.end_pos, prog);
       renderer["image_angle"] = EaseInSin(0, beastie_pos.angle, prog);
       if (tween_progress > 1.8)
         yytk->CallGameScript("gml_Script_char_animation", {renderer, RValue(beastie_pos.anim)});
@@ -927,10 +928,7 @@ void DrawStarburst(double x, double y, double z, double color, double power, dou
 void DrawPullIndexInWorld(size_t i, RValue &renderers, RValue &shader3dflatsprite, RValue &sprItems)
 {
   GachaResult &result = gacha_pull[i];
-  if (result.type == GACHA_BEASTIE) {
-    RValue renderer = renderers[i];
-    Utils::CallStructMethod(renderer, "draw", {});
-  }
+
   ItemDrawer &drawer = item_drawers[i];
   yytk->CallGameScript("gml_Script_mstack_rotate_ext", {scene_camera.height_angle + drawer.rotation_x * 360, drawer.rotation_y * 360, scene_camera.pan_angle + drawer.rotation_z * 360});
   yytk->CallGameScript("gml_Script_mstack_translate", {drawer.pos.x, drawer.pos.y - 10, drawer.pos.z});
@@ -938,6 +936,15 @@ void DrawPullIndexInWorld(size_t i, RValue &renderers, RValue &shader3dflatsprit
   yytk->CallBuiltin("shader_set", {shader3dflatsprite});
   yytk->CallBuiltin("draw_sprite_ext", {sprItems, drawer.draw_index ? drawer.index : 6, -32, -32, 1, 1, 0, 0xFFFFFF, 1});
   yytk->CallBuiltin("matrix_set", {2, Utils::GlobalGet("__identity_matrix")});
+  if (result.type == GACHA_BEASTIE) {
+    RValue renderer = renderers[i];
+    BeastieDrawer beastie_pos = beastie_drawers[i];
+    double ang = (scene_camera.pan_angle + 90 + (beastie_pos.dir < 0 ? 180 : 0)) / 180 * std::numbers::pi;
+    renderer["x"] = beastie_pos.pos.x - beastie_pos.x * sin(ang);
+    renderer["y"] = beastie_pos.pos.y - beastie_pos.x * cos(ang);
+    renderer["z"] = beastie_pos.pos.z + beastie_pos.y;
+    Utils::CallStructMethod(renderer, "draw", {});
+  }
 }
 
 void DrawTextPgramScreen(double x, double y, const RValue &text_str, double scale, double color)
@@ -1112,9 +1119,9 @@ void DoGachaPull(GachaType &gacha, int pull_count)
   RValue menu = Utils::InstanceGet(global, "mn_gacha");
   yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "menu_level_in"), menu});
   yytk->CallGameScript("gml_Script_WaitForMenuOut", {menu});
-  yytk->CallGameScript("gml_Script_WaitForTween", {1}); // My Scene - Destroy
   yytk->CallGameScript("gml_Script_Fade", {0, 1, 0.25, 1, -3});
   yytk->CallGameScript("gml_Script_Wait", {0.27});
+  yytk->CallGameScript("gml_Script_WaitForTween", {1}); // My Scene - Destroy
   yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "data_load_level")});
   yytk->CallGameScript("gml_Script_Wait", {0.1});
   yytk->CallGameScript("gml_Script_Fade", {0, 0, 0.25, 1, -3});
@@ -1439,6 +1446,9 @@ void EditGachaMenu()
 {
   if (ImGui::Button("Give 10 Jerseys"))
     yytk->CallGameScript("gml_Script_item_get", {"jersey", 10});
+  bool fourplus = gachas[0].rates.weight_4 > 0.5;
+  if (ImGui::Checkbox("Only 4+", &fourplus))
+    gachas[0].rates.weight_4 = 0.98;
   if (ImGui::BeginCombo("Editing", gachas[editing_gacha].name))
   {
     for (int i = 0; i < gacha_count; i++)
