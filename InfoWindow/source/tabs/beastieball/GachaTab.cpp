@@ -584,7 +584,7 @@ struct CameraLocation {
   double z;
   double pan_angle = 0;
   double height_angle = 80;
-  double dist = -100;
+  double dist = -200;
 };
 
 const int pan_angle_default_turn = -20;
@@ -678,10 +678,10 @@ CameraLocation scene_camera;
 void SetCameraLocation(CameraLocation camera, const RValue &scene_manager)
 {
   scene_camera = camera;
-  RValue shot = Utils::InstanceGet(scene_manager, "shot_overworld");
+  RValue shot = Utils::InstanceGet(scene_manager, "scene_camshot");
   shot["look_x"] = camera.x;
   shot["look_y"] = camera.y;
-  shot["look_z"] = camera.z;
+  shot["look_z"] = camera.z - 30;
   shot["pan_angle"] = camera.pan_angle;
   shot["height_angle"] = camera.height_angle;
   shot["dist"] = camera.dist;
@@ -737,6 +737,9 @@ bool MySceneFrame()
       RValue node = yytk->CallGameScript("gml_Script_levelnode_find", {RValue("gacha_start" + std::to_string(i))});
       camera_locations[i] = {node["x"].ToDouble(), node["y"].ToDouble(), node["z"].ToDouble()};
     }
+    Utils::InstanceSet(scene_manager, "scene_camshot", yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {R"({"_": "class_camerashot"})"})}));
+    Utils::InstanceSet(scene_manager, "scene_camshot_speed", 1);
+    SetCameraLocation(camera_locations[0], scene_manager);
     Vec3 start_pos = {camera_locations[1].x, camera_locations[1].y, camera_locations[1].z};
     RValue global_renderers = Utils::GlobalGet("char_renderers");
     for (size_t i = 0; i < gacha_pull_size; i++) {
@@ -1074,9 +1077,6 @@ void RenderScene()
     return;
   RValue renderers = Utils::GlobalGet("GACHA_SCENE_RENDERERS");
   RValue sprItems = yytk->CallBuiltin("asset_get_index", {"sprItems"});
-  RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
-  SetCameraLocation(scene_camera, scene_manager);
-  Utils::InstanceSet(scene_manager, "gameplay_camera", false);
   RValue shader3dflatsprite = yytk->CallBuiltin("asset_get_index", {"shader3DFlatSprite"});
   RValue z_test = yytk->CallBuiltin("gpu_get_ztestenable", {});
   yytk->CallBuiltin("gpu_set_ztestenable", {z_test});
