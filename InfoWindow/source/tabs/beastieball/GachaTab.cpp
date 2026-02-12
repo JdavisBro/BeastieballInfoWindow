@@ -846,8 +846,16 @@ bool MySceneFrame()
     if (gacha_scene_drawing != gacha_scene_progress)
       text_display = {};
     GachaResult &result = gacha_pull[gacha_scene_progress];
-    if (scene_skipping && result.rarity < 4 && tween_progress < 5)
-      tween_progress = 5.1;
+    double end_progress = 2.85 + result.rarity;
+    if (scene_skipping) {
+      if (result.rarity < 4 && tween_progress < end_progress)
+        tween_progress = end_progress;
+      else if (tween_progress < 1) {
+        tween_progress = 1.01;
+        yytk->CallGameScript("gml_Script_buttonlist_affirmative_reset_release", {});
+      }
+    }
+    bool is_scene_skipped = result.rarity < 4 && scene_skipping;
     CameraLocation camera_location = camera_locations[gacha_scene_progress + 2];
     SetCameraLocation(CameraInterp(camera_locations[gacha_scene_progress + 1], camera_location, min(1, tween_progress)), scene_manager);
     ItemDrawer &drawer = item_drawers[gacha_scene_progress];
@@ -866,7 +874,7 @@ bool MySceneFrame()
       if (tween_progress < 2)
         impact.drawing = false;
       if (tween_progress >= 2) {
-        if (!impact.drawing) {
+        if (!impact.drawing && !is_scene_skipped) {
           yytk->CallGameScript("gml_Script_container_play", {"sfx_beastie_high_five"});
           yytk->CallGameScript("gml_Script_eff_raylines", {0.6, 0.5});
           Utils::InstanceSet(scene_manager, "screen_shake_amt", 5);
@@ -888,7 +896,7 @@ bool MySceneFrame()
         new_rot_x = 3 + (tween_progress - 1.75) * 4;
       }
       if (tween_progress > 1.9) {
-        if (!impact.drawing) {
+        if (!impact.drawing && !is_scene_skipped) {
           Utils::InstanceSet(scene_manager, "screen_shake_amt", 5);
           Utils::InstanceSet(scene_manager, "screen_shake_time", 0.3);
         }
@@ -902,10 +910,9 @@ bool MySceneFrame()
       }
       drawer.rotation_x = min(4, max(0, new_rot_x)) / 4;
     }
-    double end_progress = 2.85 + result.rarity;
     if (tween_progress >= 2.5) {
       double name_prog = (tween_progress - 2.5) * 4;
-      if (name_prog >= 1 && text_display.name < 1) {
+      if (name_prog >= 1 && text_display.name < 1 && !is_scene_skipped) {
         Utils::InstanceSet(scene_manager, "screen_shake_amt", 4);
         Utils::InstanceSet(scene_manager, "screen_shake_time", 0.2);
       }
@@ -917,7 +924,7 @@ bool MySceneFrame()
       if (tween_progress > 2.85)
         tween_progress += delta;
       double rarity_prog = max(0, tween_progress - 2.85);
-      if (floor(text_display.rarity) < floor(rarity_prog) && result.rarity >= floor(rarity_prog)) {
+      if (floor(text_display.rarity) < floor(rarity_prog) && result.rarity >= floor(rarity_prog) && !is_scene_skipped) {
         yytk->CallGameScript("gml_Script_container_play", {"sfx_beastie_high_five"});
         Utils::InstanceSet(scene_manager, "screen_shake_amt", 4);
         Utils::InstanceSet(scene_manager, "screen_shake_time", 0.2 + 0.1 * floor(rarity_prog));
@@ -932,7 +939,7 @@ bool MySceneFrame()
         gacha_scene_progress = 10;
       return true;
     }
-    if (tween_progress > 1 && yytk->CallGameScript("gml_Script_buttonlist_pressed_affirmative", {}).ToBoolean())
+    if (yytk->CallGameScript("gml_Script_buttonlist_released_affirmative", {}).ToBoolean())
       tween_progress = end_progress;
     break;
   }
