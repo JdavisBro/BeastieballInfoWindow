@@ -1310,19 +1310,20 @@ void GachaResultsHandleInput(RValue &menu)
   int old_y = menu["selectY"].ToInt32();
   int new_x = old_x;
   int new_y = old_y;
-  if (yytk->CallGameScript("gml_Script_menu_pressed_right", {}).ToBoolean()) new_x += 1;
-  else if (yytk->CallGameScript("gml_Script_menu_pressed_left", {}).ToBoolean()) new_x -= 1;
-  if (yytk->CallGameScript("gml_Script_menu_pressed_down", {}).ToBoolean()) new_y += 1;
-  else if (yytk->CallGameScript("gml_Script_menu_pressed_up", {}).ToBoolean()) new_y -= 1;
   size_t gacha_count = gacha_pull.size();
   int pull_buttons_y = gacha_count == 1 ? 1 : 2;
+  if (yytk->CallGameScript("gml_Script_menu_pressed_right", {}).ToBoolean()) new_x += new_y != pull_buttons_y ? 1 : 2;
+  else if (yytk->CallGameScript("gml_Script_menu_pressed_left", {}).ToBoolean()) new_x -= new_y != pull_buttons_y ? 1 : 2;
+  if (yytk->CallGameScript("gml_Script_menu_pressed_down", {}).ToBoolean()) new_y += 1;
+  else if (yytk->CallGameScript("gml_Script_menu_pressed_up", {}).ToBoolean()) new_y -= 1;
 
   if (new_y < 0) new_y = 0;
   if (new_y > pull_buttons_y) new_y = pull_buttons_y;
-  if ((new_x > 4 || gacha_count == 1 && new_x > 0 && new_y != pull_buttons_y)) new_x = gacha_count == 1 ? 1 : 4;
+  if (new_x > 4 && (gacha_count != 1 || new_y == pull_buttons_y)) new_x = 4;
+  if (new_y == 0 && gacha_count == 1) new_x = 0;
   if (new_x < 0) new_x = 0;
 
-  if (new_y == pull_buttons_y && new_x < 3) new_x = 3;
+  if (new_y == pull_buttons_y && (new_x < 2 || new_x == 3)) new_x = new_x == 3 ? 4 : 2;
 
   menu["selectX"] = new_x;
   menu["selectY"] = new_y;
@@ -1341,12 +1342,7 @@ void DrawGachaResult(size_t i, bool one, GachaResult &result, double canvas_widt
 {
   double x = one ? 0.5 - gacha_pull_width / 2 : (gacha_pull_width + gacha_pull_x_sep) * (i % 5);
   double y = one ? 0.5 - gacha_pull_height / 2 : (gacha_pull_height + gacha_pull_y_sep) * floor(i / 5) + gacha_pull_top;
-  {
-    Vec2 pos = GetMenuPos(x, y);
-    Vec2 end = GetMenuPos(x + gacha_pull_width, y + gacha_pull_height);
-    yytk->CallBuiltin("draw_set_color", {0xFFFFFF});
-    yytk->CallGameScript("gml_Script_draw_pgram", {pos.x, pos.y, end.x, end.y});
-  }
+  double width_pix = canvas_width * gacha_pull_width;
   std::string text;
   RValue beastieOrItem;
   if (result.type == GACHA_BEASTIE) {
@@ -1357,16 +1353,18 @@ void DrawGachaResult(size_t i, bool one, GachaResult &result, double canvas_widt
     beastieOrItem = yytk->CallBuiltin("ds_map_find_value", {Utils::GlobalGet("item_dic"), RValue(result.item.id)});
     text = beastieOrItem["name"].ToString();
   }
-  RValue scribbled = Utils::CallStructMethod(
-    Utils::CallStructMethod(Scribble(RValue(text)),
-      "align", {1, 1}),
-    "scale", {gacha_pull_text_scale}
-  );
+  RValue scribbled = Utils::CallStructMethod(Utils::CallStructMethod(Scribble(RValue(text)),
+    "align", {1, 1}),
+    "scale", {gacha_pull_text_scale});
+  double height_nowrap = Utils::CallStructMethod(scribbled, "get_height", {}).ToDouble() / canvas_height;
+  Utils::CallStructMethod(scribbled, "wrap", {width_pix});
   double height = Utils::CallStructMethod(scribbled, "get_height", {}).ToDouble() / canvas_height;
-  // {
-  //   Vec2 pos = GetMenuPos(x + gacha_pull_width / 2, y + height / 2);
-  //   Utils::CallStructMethod(scribbled, "draw", {pos.x, pos.y});
-  // }
+  {
+    Vec2 pos = GetMenuPos(x, y + height_nowrap * 0.85);
+    Vec2 end = GetMenuPos(x + gacha_pull_width, y + gacha_pull_height);
+    yytk->CallBuiltin("draw_set_color", {0xFFFFFF});
+    yytk->CallGameScript("gml_Script_draw_pgram", {pos.x, pos.y, end.x, end.y});
+  }
   std::string sub_text;
   if (result.type == GACHA_BEASTIE) {
     bool in_party = false;
@@ -1390,12 +1388,14 @@ void DrawGachaResult(size_t i, bool one, GachaResult &result, double canvas_widt
     double count = yytk->CallGameScript("gml_Script_item_count", {RValue(result.item.id)}).ToDouble();
     sub_text = std::format("Owned: {:.0f}", count);
     RValue items = yytk->CallBuiltin("asset_get_index", {"sprItems"});
-    Vec2 pos = GetMenuPos(x + gacha_pull_width / 2, y + (gacha_pull_height - height * 2) / 2);
+    Vec2 pos = GetMenuPos(x + gacha_pull_width / 2, y + height * 2 + (gacha_pull_height - height_nowrap * 2) / 2);
     yytk->CallBuiltin("draw_sprite_ext", {items, beastieOrItem["img"], pos.x - 32 * gacha_pull_item_scale, pos.y - 32 * gacha_pull_item_scale, gacha_pull_item_scale, gacha_pull_item_scale, 0, 0xFFFFFF, 1});
   }
   RValue sub = Scribble(RValue(sub_text));
-  Utils::CallStructMethod(Utils::CallStructMethod(sub, "align", {1, 1}), "scale", {0.7});
-  DrawTextPgram(x + gacha_pull_width / 2, y + height * 1.6, sub);
+  Utils::CallStructMethod(Utils::CallStructMethod(Utils::CallStructMethod(Utils::CallStructMethod(sub, "align", {1, 0}), "scale", {gacha_pull_text_scale}), "wrap", {width_pix}), "blend", {0, 1});
+  yytk->CallBuiltin("draw_set_color", {0});
+  Vec2 pos = GetMenuPos(x + gacha_pull_width / 2, y + height + 0.01);
+  Utils::CallStructMethod(sub, "draw", {pos.x, pos.y});
   DrawJerseyCount();
 }
 
@@ -1415,7 +1415,7 @@ void DrawGachaResultsMenu(RValue &current_menu)
     DrawGachaResult(i, gacha_count == 1, gacha_pull[i], canvas_width, canvas_height, menu);
   }
   int pull_buttons_y = gacha_count == 1 ? 1 : 2;
-  if (DrawPullButton(scentered"Recruit 1 [sprItems,6]x1", {0.5, 0.9, 3, pull_buttons_y}, menu))
+  if (DrawPullButton(scentered"Recruit 1 [sprItems,6]x1", {0.5, 0.9, 2, pull_buttons_y}, menu))
     DoGachaPull(gachas[gacha_open], 1);
   if (DrawPullButton(scentered"Recruit 10 [sprItems,6]x10", {0.8, 0.9, 4, pull_buttons_y}, menu))
     DoGachaPull(gachas[gacha_open], 10);
