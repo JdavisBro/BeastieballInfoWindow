@@ -978,9 +978,9 @@ void DrawPullIndexInWorld(size_t i, RValue &renderers, RValue &shader3dflatsprit
   }
 }
 
-RValue Scribble(const RValue &text)
+RValue Scribble(const RValue &text, const RValue &id = RValue())
 {
-  return yytk->CallGameScript("gml_Script_scribble", {RValue(text)});
+  return yytk->CallGameScript("gml_Script_scribble", {text, id});
 }
 
 RValue ScribbleCentered(const std::string &text)
@@ -1360,7 +1360,7 @@ void DrawGachaResult(size_t i, bool one, GachaResult &result, double canvas_widt
     beastieOrItem = yytk->CallBuiltin("ds_map_find_value", {Utils::GlobalGet("item_dic"), RValue(result.item.id)});
     text = beastieOrItem["name"].ToString();
   }
-  RValue scribbled = Utils::CallStructMethod(Utils::CallStructMethod(Scribble(RValue(text)),
+  RValue scribbled = Utils::CallStructMethod(Utils::CallStructMethod(Scribble(RValue(text), RValue(std::format("GachaResult{}", i))),
     "align", {1, 1}),
     "scale", {gacha_pull_text_scale});
   double height_nowrap = Utils::CallStructMethod(scribbled, "get_height", {}).ToDouble() / canvas_height;
@@ -1387,7 +1387,10 @@ void DrawGachaResult(size_t i, bool one, GachaResult &result, double canvas_widt
       yytk->CallGameScript("gml_Script_menu_level_in", {Utils::InstanceGet(Utils::GetObjectInstance("objGame"), in_party ? "mn_char" : "mn_reserve_char"), beastie});
     double duplicates = GetBeastieDuplicates(beastieOrItem);
     sub_text = std::format("COACHED {:.0f}/6", duplicates);
-    Vec2 pos = GetMenuPos(x + gacha_pull_width / 2, y + gacha_pull_height * 0.98);
+    RValue species = Utils::CallStructMethod(beastie, "specie_data", {});
+    double float_dist = species["loco"]["float_dist"].ToDouble();
+    double float_y = (gacha_pull_height - height) * float_dist / 120 * gacha_pull_beastie_scale;
+    Vec2 pos = GetMenuPos(x + gacha_pull_width / 2, y + gacha_pull_height * 0.98 - float_y);
     yytk->CallGameScript("gml_Script_draw_monster_menu", {beastieOrItem, pos.x, pos.y, gacha_pull_beastie_scale});
   }
   else {
