@@ -284,6 +284,7 @@ enum GachaResultType {
 struct GachaResultBeastie {
   std::string pid;
   bool raremorph;
+  double duplicates = 0;
   int metamorph = 0; // 0: no, positive: metamorph to this index then display, negative: can metamorph, do not display.
 };
 
@@ -542,6 +543,7 @@ RValue EnsureBeastieStats(const RValue &beastie, const char *family_id, const RV
     Utils::InstanceSet(beastie, type, duplicates / 6);
   result.pid = beastie["pid"].ToString();
   result.raremorph = floor(beastie["color"][0].ToDouble()) == 1;
+  result.duplicates = GetBeastieDuplicates(beastie);
   result.metamorph = BeastieCanMetamorph(beastie, species, family_id);
   return beastie;
 }
@@ -757,10 +759,11 @@ bool MySceneFrame()
       if (result.type == GACHA_BEASTIE) {
         RValue renderer = yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {R"({"_": "class_beastie_renderer"})"})});
         RValue beastie = yytk->CallGameScript("gml_Script_char_find_by_pid", {RValue(result.beastie.pid)});
+        beastie = yytk->CallGameScript("gml_Script_ElephantDuplicate", {beastie});
+        beastie["ba_r"] = result.beastie.duplicates / 6;
         DbgPrint("m %d", result.beastie.metamorph);
         if (result.beastie.metamorph > 0) {
           while (Utils::CallStructMethod(beastie, "can_evolve", {}).ToDouble() > -1) {
-            beastie = yytk->CallGameScript("gml_Script_ElephantDuplicate", {beastie});
             Utils::CallStructMethod(beastie, "evolve", {result.beastie.metamorph - 1});
           }
         }
