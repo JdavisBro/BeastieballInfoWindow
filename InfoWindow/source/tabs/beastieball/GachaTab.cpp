@@ -228,7 +228,7 @@ GachaType gachas[] = {
       {"Beasts of", 0.2, 0.38, 1.5},
       {"AMBERSTONE", 0.26, 0.48, 1.5, 0x57a2ff},
       {"Servace", 0.76, 0.29, 1.2, 0xFFFFFF, true},
-      {scentered"[scale,0.5][sprIcon,3][sprIcon,3][sprIcon,3][sprIcon,3][sprIcon,3]", 0.756, 0.34, 1, 0xFFFFFF, true, true},
+      {scentered"[scale,0.125][sprBall,2][sprBall,2][sprBall,2][sprBall,2][sprBall,2]", 0.756, 0.34, 1, 0xFFFFFF, true, true},
       {"#1 Spiker", 0.757, 0.375, 0.5, 0xFFFFFF, true},
       {"Drop Rate Up!", 0.828, 0.24, 0.4, 0xFFFFFF, true},
     },
@@ -1055,8 +1055,6 @@ void DrawResultText()
           yytk->CallBuiltin("draw_set_color", {beastie_pos.color});
           yytk->CallGameScript("gml_Script_draw_starburst", {x_pos, y_pos, ball_size * 0.8});
         }
-        yytk->CallBuiltin("draw_set_color", {0xFFFFFF});
-        yytk->CallBuiltin("draw_circle", {x_pos - 1, y_pos - 1, ball_size * 0.5, false});
         yytk->CallBuiltin("draw_sprite_ext", {ball, 2, x_pos, y_pos, ball_size / 256, ball_size / 256, rot, 0xFFFFFF, 1});
       }
     }
@@ -1375,7 +1373,11 @@ void DrawGachaResult(size_t i, bool one, GachaResult &result, double canvas_widt
     yytk->CallBuiltin("draw_set_color", {0xFFFFFF});
     yytk->CallGameScript("gml_Script_draw_pgram", {pos.x, pos.y, end.x, end.y});
   }
-  std::string sub_text;
+  std::string sub_text = "[scale,0.2][d#0]";
+  for (int rarity_i = 0; rarity_i < result.rarity; rarity_i++) {
+    sub_text += "[sprBall,2]";
+  }
+  sub_text += "\n[/s]";
   if (result.type == GACHA_BEASTIE) {
     bool in_party = false;
     std::vector<RValue> party = Utils::GlobalGet("team_party").ToVector();
@@ -1389,7 +1391,7 @@ void DrawGachaResult(size_t i, bool one, GachaResult &result, double canvas_widt
     if (DrawMenuButton(x + gacha_pull_width / 2, y + height / 2, scribbled, (double)(i % 5), floor(i / 5), menu, false))
       yytk->CallGameScript("gml_Script_menu_level_in", {Utils::InstanceGet(Utils::GetObjectInstance("objGame"), in_party ? "mn_char" : "mn_reserve_char"), beastie});
     double duplicates = GetBeastieDuplicates(beastieOrItem);
-    sub_text = std::format("COACHED {:.0f}/6", duplicates);
+    sub_text += std::format("COACHED {:.0f}/6", duplicates);
     RValue species = Utils::CallStructMethod(beastie, "specie_data", {});
     double float_dist = species["loco"]["float_dist"].ToDouble();
     double float_y = (gacha_pull_height - height) * float_dist / 120 * gacha_pull_beastie_scale;
@@ -1399,13 +1401,13 @@ void DrawGachaResult(size_t i, bool one, GachaResult &result, double canvas_widt
   else {
     DrawMenuButton(x + gacha_pull_width / 2, y + height / 2, scribbled, (double)(i % 5), floor(i / 5), menu, false);
     double count = yytk->CallGameScript("gml_Script_item_count", {RValue(result.item.id)}).ToDouble();
-    sub_text = std::format("Owned: {:.0f}", count);
+    sub_text += std::format("Owned: {:.0f}", count);
     RValue items = yytk->CallBuiltin("asset_get_index", {"sprItems"});
     Vec2 pos = GetMenuPos(x + gacha_pull_width / 2, y + height * 2 + (gacha_pull_height - height_nowrap * 2) / 2);
     yytk->CallBuiltin("draw_sprite_ext", {items, beastieOrItem["img"], pos.x - 32 * gacha_pull_item_scale, pos.y - 32 * gacha_pull_item_scale, gacha_pull_item_scale, gacha_pull_item_scale, 0, 0xFFFFFF, 1});
   }
   RValue sub = Scribble(RValue(sub_text));
-  Utils::CallStructMethod(Utils::CallStructMethod(Utils::CallStructMethod(Utils::CallStructMethod(sub, "align", {1, 0}), "scale", {gacha_pull_text_scale}), "wrap", {width_pix}), "blend", {0, 1});
+  Utils::CallStructMethod(Utils::CallStructMethod(Utils::CallStructMethod(sub, "align", {1, 0}), "scale", {gacha_pull_text_scale}), "wrap", {width_pix});
   yytk->CallBuiltin("draw_set_color", {0});
   Vec2 pos = GetMenuPos(x + gacha_pull_width / 2, y + height + 0.01);
   Utils::CallStructMethod(sub, "draw", {pos.x, pos.y});
@@ -1508,11 +1510,11 @@ void DrawGachaRatesMenu(RValue &current_menu)
   y_pos += rates_text_height;
   DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Recruiting a Beastie you already have at COACHED 0 - 5 will increase the COACHED level of the Beastie.", gacha.rates.weight_5 * 100))));
   y_pos += rates_small_text_spacing;
-  DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Total 5[sprIcon,3] Drop Chance {:.0f}%", gacha.rates.weight_5 * 100))));
+  DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Total 5[scale,0.125][sprBall,2][scale,0.5] Drop Chance {:.0f}%", gacha.rates.weight_5 * 100))));
   y_pos += rates_small_text_spacing;
-  DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Total 4[sprIcon,3] Drop Chance {:.0f}%", gacha.rates.weight_4 * 100).c_str())));
+  DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Total 4[scale,0.125][sprBall,2][scale,0.5] Drop Chance {:.0f}%", gacha.rates.weight_4 * 100).c_str())));
   y_pos += rates_small_text_spacing;
-  DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Total 1-3[sprIcon,3] Drop Chance {:.0f}%", gacha.rates.weight_other * 100))));
+  DrawTextPgram(0.5, y_pos, Scribble(RValue(std::format(scentered"[scale,0.5]Total 1-3[scale,0.125][sprBall,2][scale,0.5] Drop Chance {:.0f}%", gacha.rates.weight_other * 100))));
   double weight_5 = 0;
   for (BeastieDrop &drop : gacha.rates.drops_5) {
     AddRatesForBeastie(y_pos, &weight_5, &gacha.rates.weight_5, char_dic, rates, drop, 5);
@@ -1537,7 +1539,7 @@ void DrawGachaRatesMenu(RValue &current_menu)
   max_gacha_scroll = y_pos_start + y_pos - 1 + rates_text_height * 1.5;
   for (DropRate rate : rates) {
     double drop_percent = rate.rarity ? (rate.weight / (*rate.total_rarity_weight) * (*rate.total_weight) * 100) : 0;
-    DrawTextPgram(0.5, rate.y_pos, Scribble(RValue(rate.rarity ? std::format(scentered"{} - {}[sprIcon,3] - {:.5f}%", rate.name, rate.rarity, drop_percent) : scentered + rate.name)));
+    DrawTextPgram(0.5, rate.y_pos, Scribble(RValue(rate.rarity ? std::format(scentered"{} - {}[scale,0.25][sprBall,2][/s] - {:.5f}%", rate.name, rate.rarity, drop_percent) : scentered + rate.name)));
   }
   DrawControls();
 }
