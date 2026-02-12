@@ -513,14 +513,12 @@ RValue &BeastieEncounterGenerate(CInstance *Self, CInstance *Other, RValue &Retu
   return ReturnValue;
 }
 
-bool metamorph_enabled = true;
-
 PFUNC_YYGMLScript classBeastieCanEvolve = nullptr;
 RValue &ClassBeastieCanEvolve(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
   if (is_encounter || Utils::GlobalGet("ROGUELIKE").ToBoolean())
     classBeastieCanEvolve(Self, Other, ReturnValue, numArgs, Args);
-  else if (metamorph_enabled)
+  else
     ReturnValue = RValue(CheckMetamorph(Self->ToRValue()) ? 0 : -1);
   return ReturnValue;
 }
@@ -531,7 +529,7 @@ RValue &ClassBeastieWaitingToMorph(CInstance *Self, CInstance *Other, RValue &Re
 
   if (is_encounter || Utils::GlobalGet("ROGUELIKE").ToBoolean())
     classBeastieWaitingToMorph(Self, Other, ReturnValue, numArgs, Args);
-  else if (metamorph_enabled)
+  else
     ReturnValue = RValue(CheckMetamorph(Self->ToRValue()));
   return ReturnValue;
 }
@@ -568,8 +566,6 @@ RValue CreateBeastie(const char *family, GachaResultBeastie &result)
 }
 
 std::vector<GachaResult> gacha_pull;
-
-bool is_my_scene = false;
 
 const int gacha_scene_progress_start = -1;
 enum GachaSceneProgress {
@@ -717,7 +713,6 @@ void SceneDestroy()
   impact = {};
   text_display = {};
   do_scene_render = false;
-  metamorph_enabled = true;
 }
 
 bool MySceneFrame()
@@ -835,7 +830,6 @@ bool MySceneFrame()
       tween_progress = 2.1;
       Utils::InstanceSet(scene_manager, "scene_skipping", false);
     };
-    metamorph_enabled = false;
     SetCameraLocation(CameraInterp(camera_locations[gacha_pull_size + 2 - 1], camera_locations[1], min(1, tween_progress / 2)), scene_manager);
     if (tween_progress >= 2) {
       gacha_scene_progress += 1;
@@ -1110,19 +1104,10 @@ bool AmScene(CInstance *Self)
 PFUNC_YYGMLScript waitForTween = nullptr;
 RValue &WaitForTween(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
 {
-  if (is_my_scene && AmScene(Self))
+  if (Args[0]->ToString() == "@@MyScene@@" && AmScene(Self))
     ReturnValue = MySceneFrame();
   else
     waitForTween(Self, Other, ReturnValue, numArgs, Args);
-  return ReturnValue;
-}
-
-PFUNC_YYGMLScript sceneEnd = nullptr;
-RValue &SceneEnd(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
-{
-  if (AmScene(Self))
-    is_my_scene = false;
-  sceneEnd(Self, Other, ReturnValue, numArgs, Args);
   return ReturnValue;
 }
 
@@ -1188,7 +1173,6 @@ void DoGachaPull(GachaType &gacha, int pull_count)
     }
     }
   }
-  is_my_scene = true;
   CInstance *global_inst = nullptr;
   yytk->GetGlobalInstance(&global_inst);
   RValue global = global_inst->ToRValue();
@@ -1199,19 +1183,19 @@ void DoGachaPull(GachaType &gacha, int pull_count)
   yytk->CallGameScript("gml_Script_Fade", {0, 1, 0.25, 1, -3});
   yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "menu_level_out_all")});
   yytk->CallGameScript("gml_Script_LevelTransition", {gacha.level_name, -3});
-  yytk->CallGameScript("gml_Script_WaitForTween", {1}); // My Scene - Begin
+  yytk->CallGameScript("gml_Script_WaitForTween", {"@@MyScene@@"}); // My Scene - Begin
   for (int i = 0; i < pull_count; i++) {
     GachaResult &result = gacha_pull[i];
-    yytk->CallGameScript("gml_Script_WaitForTween", {1}); // My Scene - Gacha Index
+    yytk->CallGameScript("gml_Script_WaitForTween", {"@@MyScene@@"}); // My Scene - Gacha Index
     yytk->CallGameScript("gml_Script_WaitForInput", {result.rarity < 4});
   }
-  yytk->CallGameScript("gml_Script_WaitForTween", {1}); // My Scene - Post
+  yytk->CallGameScript("gml_Script_WaitForTween", {"@@MyScene@@"}); // My Scene - Post
   RValue menu = Utils::InstanceGet(global, "mn_gacha_results");
   yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "menu_level_in"), menu});
   yytk->CallGameScript("gml_Script_WaitForMenuOut", {menu});
   yytk->CallGameScript("gml_Script_Fade", {0, 1, 0.25, 1, -3});
   yytk->CallGameScript("gml_Script_Wait", {0.27});
-  yytk->CallGameScript("gml_Script_WaitForTween", {1}); // My Scene - Destroy
+  yytk->CallGameScript("gml_Script_WaitForTween", {"@@MyScene@@"}); // My Scene - Destroy
   yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "data_load_level")});
   yytk->CallGameScript("gml_Script_Wait", {0.1});
   yytk->CallGameScript("gml_Script_Fade", {0, 0, 0.25, 1, -3});
@@ -1839,7 +1823,6 @@ void GachaHooks()
   RequestHook(NULL, "gml_Script_anon@700@gml_Object_objEvolvetrickies_Other_10", "IW trickies", TrickiesCheck, reinterpret_cast<PVOID *>(&trickiesCheck));
   RequestHook(NULL, "gml_Script_data_update_player_pos", "IW player_pos", DataUpdatePlayerPos, reinterpret_cast<PVOID *>(&dataUpdatePlayerPos));
 
-  RequestHook(NULL, "gml_Script_SceneEnd", "IW SceneEnd", SceneEnd, reinterpret_cast<PVOID *>(&sceneEnd));
   RequestHook(NULL, "gml_Script_WaitForTween", "IW WaitForTween", WaitForTween, reinterpret_cast<PVOID *>(&waitForTween));
 
   BuiltinHook("IW file_exists", "file_exists", FileExists, reinterpret_cast<PVOID *>(&file_exists));
@@ -1900,7 +1883,7 @@ void GachaTab(bool *open)
   else {
     ReduceJerseys();
   }
-  if (Utils::ObjectInstanceExists("objLevel") && Utils::InstanceGet(Utils::GetObjectInstance("objLevel"), "level_data")["name"].ToString().starts_with("gacha") && !is_my_scene)
+  if (Utils::ObjectInstanceExists("objLevel") && Utils::InstanceGet(Utils::GetObjectInstance("objLevel"), "level_data")["name"].ToString().starts_with("gacha") && !Utils::GlobalGet("SCENE_PLAYING").ToBoolean())
   {
     DbgPrint(Utils::InstanceGet(Utils::GlobalGet("data"), "player_pos").ToCString());
     std::vector<RValue> player_pos = Utils::InstanceGet(Utils::GlobalGet("data"), "player_pos").ToVector();
