@@ -914,6 +914,8 @@ bool MySceneFrame()
         text_display.name_string = Utils::CallStructMethod(renderers[gacha_scene_progress]["char"], "displayname", {}).ToString();
       else
         text_display.name_string = yytk->CallBuiltin("ds_map_find_value", {Utils::GlobalGet("item_dic"), RValue(result.item.id)})["name"].ToString();
+      if (tween_progress > 2.85)
+        tween_progress += delta;
       double rarity_prog = max(0, tween_progress - 2.85);
       if (floor(text_display.rarity) < floor(rarity_prog) && result.rarity >= floor(rarity_prog)) {
         yytk->CallGameScript("gml_Script_container_play", {"sfx_beastie_high_five"});
@@ -1030,11 +1032,11 @@ void DrawResultText()
     for (int i = 0; i < text_display.rarity && i < result.rarity; i++) {
       double prog = min(1, (text_display.rarity - i - 0.75) * 4);
       double ball_x = (drawer.dir > 0 ? x + pgram_width : x) + (ball_size * (i + 1) * -drawer.dir);
-      double rot = (prog < 1 ? EaseInSin(280, 360, prog) : text_display.rarity * 360) * drawer.dir;
+      double rot = (prog < 1 ? EaseInSin(280, 360, prog) : text_display.rarity * 360 / 2) * drawer.dir;
       if (prog > 0) {
         double x_pos = Linear(ball_x + 70 * drawer.dir, ball_x, prog);
         double y_pos = EaseInSin(y - 80, y, prog);
-        if (i >= 3 && i == result.rarity - 1 && floor(text_display.rarity) - 1 == i) {
+        if (i >= 3 && i == result.rarity - 1 && (text_display.rarity > i + 1 && text_display.rarity < i + 3)) {
           BeastieDrawer &beastie_pos = beastie_drawers[gacha_scene_drawing];
           yytk->CallBuiltin("draw_set_color", {0});
           yytk->CallGameScript("gml_Script_draw_starburst", {x_pos, y_pos, ball_size * 0.9});
@@ -1053,7 +1055,7 @@ void DrawResultText()
       yytk->GetBuiltin("delta_time", nullptr, NULL_INDEX, delta_rv);
       RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
       double delta = delta_rv.ToDouble() / 1'000'000;
-      text_display.rarity += delta;
+      text_display.rarity += delta * 2;
     }
   }
 }
