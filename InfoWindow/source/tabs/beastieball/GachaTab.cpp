@@ -843,17 +843,17 @@ bool MySceneFrame()
   }
   default: {
     // gacha index
-    if (gacha_scene_drawing != gacha_scene_progress)
+    if (tween_progress <= delta) {
       text_display = {};
+      yytk->CallGameScript("gml_Script_buttonlist_affirmative_reset_release", {});
+    }
     GachaResult &result = gacha_pull[gacha_scene_progress];
     double end_progress = 2.85 + result.rarity;
     if (scene_skipping) {
       if (result.rarity < 4 && tween_progress < end_progress)
         tween_progress = end_progress;
-      else if (tween_progress < 1) {
+      else if (tween_progress < 1)
         tween_progress = 1.01;
-        yytk->CallGameScript("gml_Script_buttonlist_affirmative_reset_release", {});
-      }
     }
     bool is_scene_skipped = result.rarity < 4 && scene_skipping;
     CameraLocation camera_location = camera_locations[gacha_scene_progress + 2];
