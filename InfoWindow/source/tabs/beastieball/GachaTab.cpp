@@ -699,7 +699,6 @@ Vec3 Vec3Interp(Vec3 from, Vec3 to, double x)
 
 void SceneDestroy()
 {
-  DbgPrint("DESTROYED");
   RValue renderers = Utils::GlobalGet("GACHA_SCENE_RENDERERS");
   size_t gacha_pull_size = gacha_pull.size();
   for (size_t i = 0; i < gacha_pull_size; i++)
@@ -740,13 +739,13 @@ bool MySceneFrame()
     Utils::InstanceSet(scene_manager, "scene_camshot", yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {R"({"_": "class_camerashot"})"})}));
     Utils::InstanceSet(scene_manager, "scene_camshot_speed", 1);
     SetCameraLocation(camera_locations[0], scene_manager);
-    Vec3 start_pos = {camera_locations[1].x, camera_locations[1].y, camera_locations[1].z};
+    Vec3 start_pos = {camera_locations[1].x, camera_locations[1].y + 60, camera_locations[1].z - 400};
     RValue global_renderers = Utils::GlobalGet("char_renderers");
     for (size_t i = 0; i < gacha_pull_size; i++) {
       GachaResult &result = gacha_pull[i];
       RValue node = yytk->CallGameScript("gml_Script_levelnode_find", {RValue("gacha_location" + std::to_string(i))});
       CameraLocation prev_location = camera_locations[i + 1];
-      CameraLocation camera_location = {node["x"].ToDouble(), node["y"].ToDouble(), node["z"].ToDouble()};
+      CameraLocation camera_location = {node["x"].ToDouble(), node["y"].ToDouble(), node["z"].ToDouble() - 50};
       if (prev_location.pan_angle == 0) {
         camera_location.pan_angle = prev_location.pan_angle > 0 ? pan_angle_default_turn : -pan_angle_default_turn;
       }
@@ -758,13 +757,12 @@ bool MySceneFrame()
       camera_location.x += 100 * dir;
       camera_location.y -= 10;
       camera_locations[i + 2] = camera_location;
-      item_drawers[i] = {start_pos, {start_pos.x + (pos.x - start_pos.x) * 0.75, start_pos.y + (pos.y - start_pos.y) * 0.75, pos.z + 400}, pos, 6, dir};
+      item_drawers[i] = {{0, 0, -1000}, {start_pos.x + (pos.x - start_pos.x) * 0.75, start_pos.y + (pos.y - start_pos.y) * 0.5, pos.z + 600}, pos, 6, dir};
       if (result.type == GACHA_BEASTIE) {
         RValue renderer = yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {R"({"_": "class_beastie_renderer"})"})});
         RValue beastie = yytk->CallGameScript("gml_Script_char_find_by_pid", {RValue(result.beastie.pid)});
         beastie = yytk->CallGameScript("gml_Script_ElephantDuplicate", {beastie});
         beastie["ba_r"] = result.beastie.duplicates / 6;
-        DbgPrint("m %d", result.beastie.metamorph);
         if (result.beastie.metamorph > 0) {
           while (Utils::CallStructMethod(beastie, "can_evolve", {}).ToDouble() > -1) {
             Utils::CallStructMethod(beastie, "evolve", {result.beastie.metamorph - 1});
@@ -808,20 +806,28 @@ bool MySceneFrame()
   do_scene_render = true;
   switch (gacha_scene_progress) {
   case GACHA_SCENE_BEGIN: {
-    SetCameraLocation(CameraInterp(camera_locations[0], camera_locations[1], tween_progress / 3), scene_manager);
-    Vec3 start_pos = {camera_locations[1].x, camera_locations[1].y, camera_locations[1].z - 20};
-    if (scene_skipping) tween_progress = 3;
-    if (tween_progress >= 1 && tween_progress < 2) {
+    SetCameraLocation(CameraInterp(camera_locations[0], camera_locations[1], min(2, tween_progress) / 2), scene_manager);
+    Vec3 start_pos = {camera_locations[1].x, camera_locations[1].y, camera_locations[1].z - 400};
+    if (scene_skipping) tween_progress = 4;
+    if (tween_progress >= 2 && tween_progress < 3) {
       for (ItemDrawer &item : item_drawers) {
-        item.pos = Vec3Interp(start_pos, item.middle_pos, tween_progress - 1);
+        item.pos = Vec3Interp(start_pos, item.middle_pos, tween_progress - 2);
       }
     }
-    if (tween_progress >= 2) {
-      for (ItemDrawer &item : item_drawers) {
-        item.pos = Vec3Interp(item.middle_pos, item.end_pos, min(3, tween_progress) - 2);
-      }
+    if (tween_progress > 2.1 && tween_progress - delta < 2.1) {
+      yytk->CallGameScript("gml_Script_container_play", {"ui_transition_swipe_in"});
+      Utils::InstanceSet(scene_manager, "screen_shake_amt", 4);
+      Utils::InstanceSet(scene_manager, "screen_shake_time", 0.2);
     }
     if (tween_progress >= 3) {
+      for (ItemDrawer &item : item_drawers) {
+        item.pos = Vec3Interp(item.middle_pos, item.end_pos, min(4, tween_progress) - 3);
+      }
+      if (tween_progress >= 3.5 && tween_progress - delta < 3.5) {
+        yytk->CallGameScript("gml_Script_container_play", {"ui_ball_move_slowDown"});
+      }
+    }
+    if (tween_progress >= 4) {
       tween_progress = 0;
       gacha_scene_progress += 1;
       return true;
@@ -903,6 +909,7 @@ bool MySceneFrame()
       }
       if (tween_progress > 1.9) {
         if (!impact.drawing && !is_scene_skipped) {
+          yytk->CallGameScript("gml_Script_container_play", {"ui_ball_receive_chance"});
           Utils::InstanceSet(scene_manager, "screen_shake_amt", 5);
           Utils::InstanceSet(scene_manager, "screen_shake_time", 0.3);
         }
@@ -919,6 +926,7 @@ bool MySceneFrame()
     if (tween_progress >= 2.5) {
       double name_prog = (tween_progress - 2.5) * 4;
       if (name_prog >= 1 && text_display.name < 1 && !is_scene_skipped) {
+        yytk->CallGameScript("gml_Script_container_play", {"ui_ball_bounce_gameWinner"});
         Utils::InstanceSet(scene_manager, "screen_shake_amt", 4);
         Utils::InstanceSet(scene_manager, "screen_shake_time", 0.2);
       }
@@ -931,9 +939,26 @@ bool MySceneFrame()
         tween_progress += delta;
       double rarity_prog = max(0, tween_progress - 2.85);
       if (floor(text_display.rarity) < floor(rarity_prog) && result.rarity >= floor(rarity_prog) && !is_scene_skipped) {
-        yytk->CallGameScript("gml_Script_container_play", {"sfx_beastie_high_five"});
+        if (result.rarity > floor(rarity_prog) || result.rarity <= 2)
+          yytk->CallGameScript("gml_Script_container_play", {"ui_ball_attack_0"});
+        if (result.rarity > 2 && floor(rarity_prog + 1) == result.rarity) {
+          yytk->CallGameScript("gml_Script_container_play", {
+            result.rarity == 3 ? "ui_ball_attack_33" :
+            result.rarity == 4 ? "ui_ball_attack_66" :
+                                 "ui_ball_attack_99"
+            });
+        }
+        if (result.rarity > 2 && floor(rarity_prog) == result.rarity) {
+          yytk->CallGameScript("gml_Script_container_play", {
+            result.rarity == 1 ? "ui_ball_receive_16" :
+            result.rarity == 2 ? "ui_ball_receive_33" :
+            result.rarity == 3 ? "ui_ball_receive_50" :
+            result.rarity == 4 ? "ui_ball_receive_66" :
+                                 "ui_ball_receive_83"
+            });
+        }
         Utils::InstanceSet(scene_manager, "screen_shake_amt", 4);
-        Utils::InstanceSet(scene_manager, "screen_shake_time", 0.2 + 0.1 * floor(rarity_prog));
+        Utils::InstanceSet(scene_manager, "screen_shake_time", 0.1 * floor(rarity_prog));
       }
       text_display.rarity = min((double)result.rarity, rarity_prog);
     }
@@ -1388,8 +1413,10 @@ void DrawGachaResult(size_t i, bool one, GachaResult &result, double canvas_widt
       }
     }
     RValue beastie = yytk->CallGameScript("gml_Script_char_find_by_pid", {RValue(result.beastie.pid)});
-    if (DrawMenuButton(x + gacha_pull_width / 2, y + height / 2, scribbled, (double)(i % 5), floor(i / 5), menu, false))
+    if (DrawMenuButton(x + gacha_pull_width / 2, y + height / 2, scribbled, (double)(i % 5), floor(i / 5), menu, false)) {
       yytk->CallGameScript("gml_Script_menu_level_in", {Utils::InstanceGet(Utils::GetObjectInstance("objGame"), in_party ? "mn_char" : "mn_reserve_char"), beastie});
+      yytk->CallGameScript("gml_Script_container_play", {"ui_menu_sub_open"});
+    }
     double duplicates = GetBeastieDuplicates(beastieOrItem);
     sub_text += std::format("COACHED {:.0f}/6", duplicates);
     RValue species = Utils::CallStructMethod(beastie, "specie_data", {});
@@ -1902,7 +1929,6 @@ void GachaTab(bool *open)
   }
   if (Utils::ObjectInstanceExists("objLevel") && Utils::InstanceGet(Utils::GetObjectInstance("objLevel"), "level_data")["name"].ToString().starts_with("gacha") && !Utils::GlobalGet("SCENE_PLAYING").ToBoolean())
   {
-    DbgPrint(Utils::InstanceGet(Utils::GlobalGet("data"), "player_pos").ToCString());
     std::vector<RValue> player_pos = Utils::InstanceGet(Utils::GlobalGet("data"), "player_pos").ToVector();
     RValue level = CheatsTab::FindLevel(player_pos[0].ToDouble(), player_pos[1].ToDouble());
     if (level.ToBoolean())
