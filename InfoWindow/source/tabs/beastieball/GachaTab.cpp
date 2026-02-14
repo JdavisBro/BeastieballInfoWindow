@@ -807,14 +807,15 @@ bool MySceneFrame()
   switch (gacha_scene_progress) {
   case GACHA_SCENE_BEGIN: {
     SetCameraLocation(CameraInterp(camera_locations[0], camera_locations[1], min(2, tween_progress) / 2), scene_manager);
-    Vec3 start_pos = {camera_locations[1].x, camera_locations[1].y, camera_locations[1].z - 400};
+    CameraLocation cam_pos = CameraInterp(camera_locations[0], camera_locations[1], 0.5);
+    Vec3 start_pos = {cam_pos.x, cam_pos.y, cam_pos.z - 300};
     if (scene_skipping) tween_progress = 4;
     if (tween_progress >= 2 && tween_progress < 3) {
       for (ItemDrawer &item : item_drawers) {
         item.pos = Vec3Interp(start_pos, item.middle_pos, tween_progress - 2);
       }
     }
-    if (tween_progress > 2.1 && tween_progress - delta < 2.1) {
+    if (tween_progress >= 2 && tween_progress - delta < 2) {
       yytk->CallGameScript("gml_Script_container_play", {"ui_transition_swipe_in"});
       Utils::InstanceSet(scene_manager, "screen_shake_amt", 4);
       Utils::InstanceSet(scene_manager, "screen_shake_time", 0.2);
