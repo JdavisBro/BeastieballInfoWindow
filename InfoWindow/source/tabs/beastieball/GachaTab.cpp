@@ -882,8 +882,10 @@ bool MySceneFrame()
       double prog = max(0, min(1, tween_progress - 1));
       beastie_pos.pos = Vec3EaseInSin(beastie_pos.middle_pos, beastie_pos.end_pos, prog);
       renderer["image_angle"] = EaseInSin(0, beastie_pos.angle, prog);
-      if (tween_progress > 1.8)
-        yytk->CallGameScript("gml_Script_char_animation", {renderer, RValue(beastie_pos.anim)});
+      if (tween_progress > 1.8 && tween_progress - delta <= 1.8 && renderer["animation_state"][0].ToString() != beastie_pos.anim) {
+        yytk->CallGameScript("gml_Script_char_animation", {renderer, RValue(beastie_pos.anim), 0, RValue(), false, true});
+        Utils::CallStructMethod(renderer["char"], "play_vo_hello", {});
+      }
       if (tween_progress < 2)
         impact.drawing = false;
       if (tween_progress >= 2) {
@@ -1090,9 +1092,13 @@ void DrawResultText()
     if (text_display.rarity >= result.rarity) {
       RValue delta_rv;
       yytk->GetBuiltin("delta_time", nullptr, NULL_INDEX, delta_rv);
-      RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
       double delta = delta_rv.ToDouble() / 1'000'000;
-      text_display.rarity += delta * 2;
+      double new_rarity = text_display.rarity + delta * 2;
+      if (new_rarity - 0.65 >= result.rarity && text_display.rarity - 0.65 < result.rarity) {
+        RValue renderers = Utils::GlobalGet("GACHA_SCENE_RENDERERS");
+        Utils::CallStructMethod(renderers[gacha_scene_drawing]["char"], "play_vo_cheer", {});
+      }
+      text_display.rarity = new_rarity;
     }
   }
 }
