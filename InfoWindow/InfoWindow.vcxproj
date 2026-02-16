@@ -178,6 +178,7 @@
     <ClCompile Include="include\YYToolkit\YYTK_Shared_Types.cpp" />
     <ClCompile Include="source\ImguiWindow.cpp" />
     <ClCompile Include="source\tabs\ObjectTab.cpp" />
+    <ClCompile Include="source\tabs\ConsoleTab.cpp" />
     <ClCompile Include="source\tabs\beastieball\AiTab.cpp" />
     <ClCompile Include="source\tabs\beastieball\PartyTab.cpp" />
     <ClCompile Include="source\tabs\beastieball\CheatsTab.cpp" />
@@ -205,6 +206,7 @@
     <ClInclude Include="include\json.hpp" />
     <ClInclude Include="source\ImguiWindow.h" />
     <ClInclude Include="source\tabs\ObjectTab.h" />
+    <ClInclude Include="source\tabs\ConsoleTab.h" />
     <ClInclude Include="source\tabs\beastieball\AiTab.h" />
     <ClInclude Include="source\tabs\beastieball\PartyTab.h" />
     <ClInclude Include="source\tabs\beastieball\CheatsTab.h" />
