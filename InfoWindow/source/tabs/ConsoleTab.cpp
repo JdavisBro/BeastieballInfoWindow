@@ -13,6 +13,16 @@ using namespace YYTK;
 
 #include <fstream>
 
+namespace Aurie {
+namespace Internal {
+#define MY_AURIE_API_CALL(Function) ::Aurie::Internal::AurieApiDispatcher<decltype(Function)>()(#Function)
+void DbgpDestroyConsole()
+{
+  MY_AURIE_API_CALL(DbgpDestroyConsole);
+}
+}
+}
+
 namespace ConsoleTab {
 
 std::vector<std::string> game_output;
@@ -36,8 +46,12 @@ void ShowDebugMessage(RValue &Result, CInstance *Self, CInstance *Other, int num
 
 std::fstream aurie_log;
 
+bool close_console_window = false;
+
 void ConsoleHooks()
 {
+  if (close_console_window)
+    Aurie::Internal::DbgpDestroyConsole();
   aurie_log.open("aurie.log", std::fstream::in, _SH_DENYNO);
   BuiltinHook("IW show_debug_message", "show_debug_message", ShowDebugMessage, reinterpret_cast<PVOID *>(&show_debug_message));
 }
@@ -58,13 +72,15 @@ void DrawConsoleOutput(std::vector<std::string> &output, bool do_colors = false)
   //   DbgPrintEx(LOG_SEVERITY_WARNING, "a");
   // }
   // ImGui::SameLine();
+  filter.Draw("Filter (\"incl,-excl\") (\"error\")", 180);
+  ImGui::SameLine();
   if (ImGui::Button("Copy"))
     ImGui::SetClipboardText(output[selected].c_str());
   ImGui::SameLine();
   if (ImGui::Button("To Bottom"))
     go_to_bottom = true;
   ImGui::SameLine();
-  filter.Draw("Filter (\"incl,-excl\") (\"error\")", 180);
+  ImGui::Checkbox("Close Aurie Console", &close_console_window);
   ImGui::BeginChild("console!!!", {0, 0}, ImGuiChildFlags_Borders);
   size_t count = output.size();
   for (size_t i = 0; i < count; i++) {
@@ -131,11 +147,11 @@ void ReadAurieOutput()
 
 void ConsoleTab(bool *open)
 {
+  ReadAurieOutput();
   if (!ImGui::Begin("Console", open, ImGuiWindowFlags_NoFocusOnAppearing)) {
     ImGui::End();
     return;
   }
-  ReadAurieOutput();
   if (ImGui::BeginTabBar("consolebar")) {
     if (ImGui::BeginTabItem("Game")) {
       DrawConsoleOutput(game_output);
@@ -152,7 +168,7 @@ void ConsoleTab(bool *open)
 
 void Store()
 {
-
+  Storage::Store("close_console_window", &close_console_window);
 }
 
 }
