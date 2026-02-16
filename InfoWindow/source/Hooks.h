@@ -7,3 +7,5 @@ using namespace YYTK;
 void CreateHooks();
 
 void RequestHook(const char *pre, const char *post, const char *HookId, PVOID HookFunction, PVOID *Trampoline);
+
+void BuiltinHook(const char *HookId, const char *FnName, PVOID HookFunction, PVOID *Trampoline);

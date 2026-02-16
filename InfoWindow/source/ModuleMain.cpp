@@ -14,6 +14,7 @@ using namespace YYTK;
 #include "Utils.h"
 #include "Storage.h"
 #include "tabs/ObjectTab.h"
+#include "tabs/ConsoleTab.h"
 #include "tabs/beastieball/AiTab.h"
 #include "tabs/beastieball/MatchTab.h"
 #include "tabs/beastieball/PartyTab.h"
@@ -41,6 +42,7 @@ bool hooks_done = false;
 void DoHooks()
 {
 	// hook requests
+	ConsoleTab::ConsoleHooks();
 	if (is_beastieball)
 	{
 		AiTab::AiHooks();
@@ -69,6 +71,7 @@ struct TabInfo
 TabInfo tabs[] = {
 	{"ImGui Demo", false, false, DemoWindow},
 	{"Object Tab", true, false, ObjectTab::ObjectTab, "ObjectTab", ObjectTab::Store},
+	{"Console Tab", true, false, ConsoleTab::ConsoleTab, "ConsoleTab", ConsoleTab::Store},
 	{"AI Tab", true, true, AiTab::AiTab, "AiTab", AiTab::Store},
 	{"Match Tab", true, true, MatchTab::MatchTab, "MatchTab", MatchTab::Store},
 	{"Party Tab", true, true, PartyTab::PartyTab, "PartyTab", PartyTab::Store},

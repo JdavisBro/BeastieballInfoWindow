@@ -47,11 +47,11 @@ void CreateHooks()
       {
         std::string combined_name = std::string(request.pre == NULL ? "" : request.pre) + request.post;
         last_status = MmCreateHook(
-            g_ArSelfModule,
-            request.HookId,
-            script->m_Functions->m_ScriptFunction,
-            request.HookFunction,
-            request.Trampoline);
+          g_ArSelfModule,
+          request.HookId,
+          script->m_Functions->m_ScriptFunction,
+          request.HookFunction,
+          request.Trampoline);
         if (!AurieSuccess(last_status))
         {
           DbgPrintEx(LOG_SEVERITY_WARNING, "Failed to create hook for %s", combined_name.c_str());
@@ -78,4 +78,20 @@ void CreateHooks()
 void RequestHook(const char *pre, const char *post, const char *HookId, PVOID HookFunction, PVOID *Trampoline)
 {
   requested_hooks.push_back({pre, post, HookId, HookFunction, Trampoline});
+}
+
+void BuiltinHook(const char *HookId, const char *FnName, PVOID HookFunction, PVOID *Trampoline)
+{
+  PVOID function = nullptr;
+  yytk->GetNamedRoutinePointer(FnName, &function);
+  AurieStatus last_status = MmCreateHook(
+    g_ArSelfModule,
+    HookId,
+    function,
+    HookFunction,
+    Trampoline);
+  if (!AurieSuccess(last_status))
+    DbgPrintEx(LOG_SEVERITY_WARNING, "Failed to create hook for %s", FnName);
+  else
+    DbgPrintEx(LOG_SEVERITY_INFO, "Hook created for %s!", FnName);
 }
