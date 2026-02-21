@@ -23,14 +23,13 @@ void Undo(const RValue &game_active)
   }
 }
 
-int FindAi(const RValue &game_active)
+int FindAi(const RValue &game_active, bool always_return_ai = false)
 {
   if (!game_active.ToBoolean())
     return -2;
   RValue ai_choicegraph = Utils::InstanceGet(game_active, "ai_choicegraph");
-  RValue selection_mode = Utils::InstanceGet(game_active, "selection_mode");
-  bool scene_playing = Utils::GlobalGet("SCENE_PLAYING").ToBoolean();
-  if (ai_choicegraph.ToBoolean() || selection_mode.ToInt32() != 0 || scene_playing)
+  bool scene_queued = yytk->CallGameScript("gml_Script_SCENE_QUEUED", {}).ToBoolean();
+  if (!always_return_ai && (ai_choicegraph.ToBoolean() || scene_queued))
     return -1;
   int found_ai = -1;
   for (int i = 0; i < 2; i += 1)
@@ -48,11 +47,11 @@ int FindAi(const RValue &game_active)
       found_ai = i;
     }
   }
+  if (always_return_ai)
+    return found_ai;
   // ai not found or player turned.
   if (found_ai == -1 || Utils::InstanceGet(game_active, "teams")[!found_ai]["turned"].ToBoolean())
-  {
     return -1;
-  }
   return found_ai;
 }
 
@@ -61,6 +60,8 @@ int player_team = -1;
 void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
 {
   Undo(game_active);
+  yytk->CallGameScript("gml_Script_selector_stack_clear", {});
+  yytk->CallGameScript("gml_Script_selection_mode_reset", {});
   yytk->CallGameScript("gml_Script_board_snapshot", {});
   Utils::InstanceSet(game_active, "ai_selecting", found_ai);
   RValue aitreeElephant = yytk->CallBuiltin("json_parse", {"{\"_\": \"class_aitree\"}"});
@@ -398,6 +399,36 @@ void SimulateTree()
   sim_total += SIM_COUNT;
 }
 
+void DrawPreferTarget(const RValue &game)
+{
+  if (!game.ToBoolean())
+    return;
+  int found_ai = FindAi(game, true);
+  if (found_ai < 0)
+    return;
+  RValue ai = Utils::InstanceGet(game, "teams_data")[found_ai]["ai"];
+  double prefer_target = ai["prefer_target"].ToDouble();
+  if (prefer_target < 0)
+    return;
+  ImGui::SameLine();
+  ImGui::Text("Prefer Target");
+  std::vector<RValue> player_team = Utils::InstanceGet(game, "teams")[!found_ai]["players"].ToVector();
+  for (int i = 0; i < min((int)player_team.size(), 2); i++) {
+    ImGui::SameLine();
+    std::string name = std::format("{}#{}", player_team[i]["name"].ToString(), player_team[i]["number"].ToString());
+    if (ImGui::RadioButton(name.c_str(), prefer_target == i)) {
+      if (FindAi(game) >= 0) {
+        ai["prefer_target"] = i;
+        if (Utils::ObjectInstanceExists("objStreamer")) {
+          RValue streamer = Utils::GetObjectInstance("objStreamer");
+          Utils::InstanceGet(streamer, "chat")["voting_on"] = i;
+        }
+        MakeAi(game);
+      }
+    }
+  }
+}
+
 bool auto_create_ai = true;
 
 // MARK: Tab Stuff
@@ -418,7 +449,11 @@ void AiTab(bool *open)
   if (ImGui::Button("Simulate Chances"))
     SimulateTree();
   ImGui::SameLine();
+  if (ImGui::Button("Undo"))
+    Undo(game_active);
+  ImGui::SameLine();
   ImGui::Checkbox("Auto Create AI", &auto_create_ai);
+  DrawPreferTarget(game_active);
   CreateAiTree(game_active);
   DrawAiTree(game_active);
 
