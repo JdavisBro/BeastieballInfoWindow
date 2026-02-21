@@ -53,9 +53,9 @@ StorageType GetStorageType(RValue &object)
       return STORAGE_STRUCT;
   case VALUE_REF:
   {
-    if (yytk->CallBuiltin("instance_exists", {object}))
-      return STORAGE_INSTANCE;
     std::string ref_string = object.ToString();
+    if (ref_string.find("instance") != -1 && yytk->CallBuiltin("instance_exists", {object}).ToBoolean())
+      return STORAGE_INSTANCE;
     if (ref_string.find("ds_map") != -1)
       return STORAGE_DS_MAP;
     if (ref_string.find("ds_list") != -1)
@@ -104,16 +104,15 @@ std::string RValueToString(RValue &value)
   case VALUE_OBJECT:
   {
     if (yytk->CallBuiltin("is_method", {value}).ToBoolean())
-      break;
+      return std::format("Script ({})", yytk->CallBuiltin("script_get_name", {value}).ToString());
     std::string constructor = yytk->CallBuiltin("instanceof", {value}).ToString();
     return std::format("Struct ({})", constructor);
   }
   case VALUE_REF:
   {
-    if (!yytk->CallBuiltin("instance_exists", {value}))
-      break;
-    RValue object = Utils::InstanceGet(value, "object_index");
-    return std::format("Instance ({})", yytk->CallBuiltin("object_get_name", {object}).ToString());
+    if (value.ToString().starts_with("ref instance") && yytk->CallBuiltin("instance_exists", {value}).ToBoolean())
+      return std::format("Instance ({})", yytk->CallBuiltin("object_get_name", {Utils::InstanceGet(value, "object_index")}).ToString());
+    break;
   }
   case VALUE_STRING:
     return std::format("\"{}\"", value.ToString());
