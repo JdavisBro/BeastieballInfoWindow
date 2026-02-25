@@ -44,6 +44,43 @@ enum StorageType : int32_t
   STORAGE_DS_LIST = 4,
 };
 
+// there are more but these are the ones i found in beastieball easily.
+enum RefType : int64_t
+{
+  // 0x1 assets
+  REF_TYPE_ASSET_OBJECT = 0x1000000,
+  REF_TYPE_ASSET_SPRITE = 0x1000001,
+  REF_TYPE_ASSET_SOUND = 0x1000002,
+  REF_TYPE_ASSET_PATH = 0x1000004,
+  REF_TYPE_ASSET_TIMELINE = 0x1000007,
+  // 0x2 data structures
+  REF_TYPE_DS_LIST = 0x2000001,
+  REF_TYPE_DS_MAP = 0x2000002,
+  REF_TYPE_DS_GRID = 0x2000004,
+  REF_TYPE_DS_QUEUE = 0x2000008,
+  REF_TYPE_DS_STACK = 0x2000010,
+  REF_TYPE_DS_PRIORITY = 0x2000020,
+  // 0x4 instance & particles
+  REF_TYPE_INSTANCE = 0x4000001,
+  REF_TYPE_PARTICLE_INSTANCE = 0x400004,
+  REF_TYPE_PARTICLE_TYPE = 0x4000010,
+  // 0x8 buffers
+  REF_TYPE_BUFFER = 0x8000001,
+  REF_TYPE_VERTEX_BUFFER = 0x8000002,
+  REF_TYPE_VERTEX_FORMAT = 0x8000003,
+  REF_TYPE_SURFACE = 0x8000004,
+};
+
+enum DsType : int64_t
+{
+  DS_TYPE_MAP = 1,
+  DS_TYPE_LIST,
+  DS_TYPE_STACK,
+  DS_TYPE_QUEUE,
+  DS_TYPE_GRID,
+  DS_TYPE_PRIORITY,
+};
+
 StorageType GetStorageType(RValue &object)
 {
   switch (object.m_Kind)
@@ -52,16 +89,15 @@ StorageType GetStorageType(RValue &object)
     if (!yytk->CallBuiltin("is_method", {object}).ToBoolean())
       return STORAGE_STRUCT;
   case VALUE_REF:
-  {
-    std::string ref_string = object.ToString();
-    if (ref_string.find("instance") != -1 && yytk->CallBuiltin("instance_exists", {object}).ToBoolean())
-      return STORAGE_INSTANCE;
-    if (ref_string.find("ds_map") != -1)
-      return STORAGE_DS_MAP;
-    if (ref_string.find("ds_list") != -1)
-      return STORAGE_DS_LIST;
+    switch (object.m_i64 >> 32) {
+    case REF_TYPE_INSTANCE:
+      return yytk->CallBuiltin("instance_exists", {object}).ToBoolean() ? STORAGE_INSTANCE : STORAGE_UNKNOWN;
+    case REF_TYPE_DS_MAP:
+      return yytk->CallBuiltin("ds_exists", {object, (double)DS_TYPE_MAP}).ToBoolean() ? STORAGE_DS_MAP : STORAGE_UNKNOWN;
+    case REF_TYPE_DS_LIST:
+      return yytk->CallBuiltin("ds_exists", {object, (double)DS_TYPE_LIST}).ToBoolean() ? STORAGE_DS_LIST : STORAGE_UNKNOWN;
+    }
     break;
-  }
   case VALUE_ARRAY:
     return STORAGE_ARRAY;
   }
@@ -110,7 +146,7 @@ std::string RValueToString(RValue &value)
   }
   case VALUE_REF:
   {
-    if (value.ToString().starts_with("ref instance") && yytk->CallBuiltin("instance_exists", {value}).ToBoolean())
+    if ((value.m_i64 >> 32) == REF_TYPE_INSTANCE && yytk->CallBuiltin("instance_exists", {value}).ToBoolean())
       return std::format("Instance ({})", yytk->CallBuiltin("object_get_name", {Utils::InstanceGet(value, "object_index")}).ToString());
     break;
   }
