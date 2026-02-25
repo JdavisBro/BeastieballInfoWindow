@@ -90,6 +90,7 @@ StorageType GetStorageType(RValue &object)
       return STORAGE_STRUCT;
   case VALUE_REF:
     switch (object.m_i64 >> 32) {
+    case 0x7FF80000:
     case REF_TYPE_INSTANCE:
       return yytk->CallBuiltin("instance_exists", {object}).ToBoolean() ? STORAGE_INSTANCE : STORAGE_UNKNOWN;
     case REF_TYPE_DS_MAP:
@@ -146,8 +147,9 @@ std::string RValueToString(RValue &value)
   }
   case VALUE_REF:
   {
-    if ((value.m_i64 >> 32) == REF_TYPE_INSTANCE && yytk->CallBuiltin("instance_exists", {value}).ToBoolean())
+    if (((value.m_i64 >> 32) == REF_TYPE_INSTANCE || (value.m_i64 >> 32) == 0x7FF80000) && yytk->CallBuiltin("instance_exists", {value}).ToBoolean())
       return std::format("Instance ({})", yytk->CallBuiltin("object_get_name", {Utils::InstanceGet(value, "object_index")}).ToString());
+    return std::format("0x{:x}", value.m_i64);
     break;
   }
   case VALUE_STRING:
