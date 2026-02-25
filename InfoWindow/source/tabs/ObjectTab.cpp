@@ -149,7 +149,6 @@ std::string RValueToString(RValue &value)
   {
     if (((value.m_i64 >> 32) == REF_TYPE_INSTANCE || (value.m_i64 >> 32) == 0x7FF80000) && yytk->CallBuiltin("instance_exists", {value}).ToBoolean())
       return std::format("Instance ({})", yytk->CallBuiltin("object_get_name", {Utils::InstanceGet(value, "object_index")}).ToString());
-    return std::format("0x{:x}", value.m_i64);
     break;
   }
   case VALUE_STRING:
