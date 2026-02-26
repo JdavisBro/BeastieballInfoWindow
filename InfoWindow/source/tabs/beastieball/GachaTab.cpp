@@ -888,6 +888,9 @@ bool MySceneFrame()
       }
       if (tween_progress < 2)
         impact.drawing = false;
+      if (tween_progress > 1.5 && tween_progress - delta <= 1.5 && !is_scene_skipped) {
+        yytk->CallGameScript("gml_Script_audio_param_tween", {"slomo", 100, 0.5});
+      }
       if (tween_progress >= 2) {
         if (!impact.drawing && !is_scene_skipped) {
           yytk->CallGameScript("gml_Script_container_play", {"sfx_beastie_high_five"});
@@ -900,6 +903,9 @@ bool MySceneFrame()
         impact.color2 = beastie_pos.color2;
         impact.drawing = true;
       }
+      if (tween_progress > 2.5 && tween_progress - delta <= 2.5) {
+        yytk->CallGameScript("gml_Script_audio_param_tween", {"slomo", 0, 0.25});
+      }
     }
     else {
       double new_rot_x = 0;
@@ -910,11 +916,15 @@ bool MySceneFrame()
         drawer.draw_index = true;
         new_rot_x = 3 + (tween_progress - 1.75) * 4;
       }
+      if (tween_progress > 1.2 && tween_progress - delta <= 1.2 && !is_scene_skipped) {
+        yytk->CallGameScript("gml_Script_audio_param_tween", {"slomo", 100, 0.5});
+      }
       if (tween_progress > 1.9) {
         if (!impact.drawing && !is_scene_skipped) {
           yytk->CallGameScript("gml_Script_container_play", {"ui_ball_receive_chance"});
           Utils::InstanceSet(scene_manager, "screen_shake_amt", 5);
           Utils::InstanceSet(scene_manager, "screen_shake_time", 0.3);
+          yytk->CallGameScript("gml_Script_audio_param_tween", {"slomo", 0, 0.2});
         }
         impact.pos = drawer.end_pos;
         impact.color = -1;
@@ -1077,13 +1087,19 @@ void DrawResultText()
       if (prog > 0) {
         double x_pos = Linear(ball_x + 70 * drawer.dir, ball_x, prog);
         double y_pos = EaseInSin(y - 80, y, prog);
-        if (i >= 3 && i == result.rarity - 1 && (text_display.rarity > i + 1 && text_display.rarity < i + 3)) {
-          BeastieDrawer &beastie_pos = beastie_drawers[gacha_scene_drawing];
+        if (i >= 2 && i == result.rarity - 1 && (text_display.rarity > i + 1 && text_display.rarity < i + 3)) {
+          double color2 = 0xF0F0F0;
+          double color = 0xFFFFFF;
+          if (result.type == GACHA_BEASTIE) {
+            BeastieDrawer &beastie_pos = beastie_drawers[gacha_scene_drawing];
+            color2 = beastie_pos.color2;
+            color = beastie_pos.color;
+          }
           yytk->CallBuiltin("draw_set_color", {0});
           yytk->CallGameScript("gml_Script_draw_starburst", {x_pos, y_pos, ball_size * 0.9});
-          yytk->CallBuiltin("draw_set_color", {beastie_pos.color2});
+          yytk->CallBuiltin("draw_set_color", {color2});
           yytk->CallGameScript("gml_Script_draw_starburst", {x_pos, y_pos, ball_size * 1});
-          yytk->CallBuiltin("draw_set_color", {beastie_pos.color});
+          yytk->CallBuiltin("draw_set_color", {color});
           yytk->CallGameScript("gml_Script_draw_starburst", {x_pos, y_pos, ball_size * 0.8});
         }
         yytk->CallBuiltin("draw_sprite_ext", {ball, 2, x_pos, y_pos, ball_size / 256, ball_size / 256, rot, 0xFFFFFF, 1});
@@ -1094,7 +1110,7 @@ void DrawResultText()
       yytk->GetBuiltin("delta_time", nullptr, NULL_INDEX, delta_rv);
       double delta = delta_rv.ToDouble() / 1'000'000;
       double new_rarity = text_display.rarity + delta * 2;
-      if (new_rarity - 0.65 >= result.rarity && text_display.rarity - 0.65 < result.rarity) {
+      if (result.type == GACHA_BEASTIE && new_rarity - 0.65 >= result.rarity && text_display.rarity - 0.65 < result.rarity) {
         RValue renderers = Utils::GlobalGet("GACHA_SCENE_RENDERERS");
         Utils::CallStructMethod(renderers[gacha_scene_drawing]["char"], "play_vo_cheer", {});
       }
@@ -1233,6 +1249,8 @@ void DoGachaPull(GachaType &gacha, int pull_count)
   }
   yytk->CallGameScript("gml_Script_WaitForTween", {"@@MyScene@@"}); // My Scene - Post
   RValue menu = Utils::InstanceGet(global, "mn_gacha_results");
+  menu["selectX"] = 0;
+  menu["selectY"] = 0;
   yytk->CallGameScript("gml_Script_SceneAdd", {Utils::InstanceGet(global, "menu_level_in"), menu});
   yytk->CallGameScript("gml_Script_WaitForMenuOut", {menu});
   yytk->CallGameScript("gml_Script_Fade", {0, 1, 0.25, 1, -3});
