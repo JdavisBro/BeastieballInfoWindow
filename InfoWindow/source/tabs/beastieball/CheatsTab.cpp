@@ -52,6 +52,13 @@ RValue FindLevel(double x, double y)
   return fallback;
 }
 
+void LevelGoto(const RValue &level_id, bool loading = false)
+{
+  yytk->CallGameScript("gml_Script_SceneLayerIn", {});
+  yytk->CallGameScript("gml_Script_SceneAdd", {yytk->CallBuiltin("asset_get_index", {"level_goto"}), level_id, loading});
+  yytk->CallGameScript("gml_Script_SceneLayerOut", {});
+}
+
 void TeleportToMapWorldPosition(RValue &game, RValue &player, const char *x_key, const char *y_key, double x_offset = 0, double y_offset = 0)
 {
   RValue map = Utils::InstanceGet(game, "mn_map");
@@ -75,7 +82,7 @@ void TeleportToMapWorldPosition(RValue &game, RValue &player, const char *x_key,
     return;
   }
   on_level_load_go = true;
-  yytk->CallGameScript("gml_Script_level_goto", {level["name"]});
+  LevelGoto(level["name"]);
 }
 
 void SaveTable(int &slot)
@@ -126,7 +133,7 @@ void ReloadLevel(const RValue &game)
   yytk->CallGameScript("gml_Script_data_update_player_pos", {});
   yytk->CallGameScript("gml_Script_SceneClear", {});
   RValue level_id = Utils::InstanceGet(game, "level_id");
-  yytk->CallGameScript("gml_Script_level_goto", {level_id, true});
+  LevelGoto(level_id, true);
 }
 
 void SetGroupRenders(RValue &group)
@@ -366,6 +373,15 @@ void KeepFreecam(const RValue &player)
   Utils::InstanceSet(scenemanager, "camera_projection_mode", (keep_freecam && !freecam) ? 3 : old_proj_mode);
 }
 
+void SavedataLoad()
+{
+  yytk->CallGameScript("gml_Script_SceneLayerIn", {});
+  yytk->CallGameScript("gml_Script_SceneAdd", {yytk->CallBuiltin("asset_get_index", {"savedata_load"})});
+  yytk->CallGameScript("gml_Script_SceneAdd", {yytk->CallBuiltin("asset_get_index", {"data_load_level"})});
+  yytk->CallGameScript("gml_Script_SceneAdd", {yytk->CallBuiltin("asset_get_index", {"menu_level_out_all"})});
+  yytk->CallGameScript("gml_Script_SceneLayerOut", {});
+}
+
 bool auto_load = false;
 bool was_init = true;
 
@@ -373,11 +389,8 @@ void CheatsTab(bool *open)
 {
   if (was_init && !Utils::ObjectInstanceExists("objInit")) {
     was_init = false;
-    if (auto_load) {
-      yytk->CallGameScript("gml_Script_savedata_load", {});
-      yytk->CallGameScript("gml_Script_data_load_level", {});
-      yytk->CallGameScript("gml_Script_menu_level_out_all", {});
-    }
+    if (auto_load)
+      SavedataLoad();
   }
   RValue player = Utils::GetObjectInstance("objPlayer");
   if (on_level_load_go)
@@ -460,11 +473,7 @@ void CheatsTab(bool *open)
     yytk->CallGameScript("gml_Script_savedata_save", {});
   ImGui::SameLine();
   if (ImGui::Button("Load"))
-  {
-    yytk->CallGameScript("gml_Script_savedata_load", {});
-    yytk->CallGameScript("gml_Script_data_load_level", {});
-    yytk->CallGameScript("gml_Script_menu_level_out_all", {});
-  }
+    SavedataLoad();
   ImGui::SameLine();
   ImGui::Checkbox("Load last save on startup", &auto_load);
   SaveTable(slot);
