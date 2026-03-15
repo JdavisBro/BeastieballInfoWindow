@@ -13,7 +13,9 @@ using namespace YYTK;
 
 namespace AiTab {
 
-void Undo(const RValue &game_active)
+int done_round = -1;
+
+void Undo(const RValue &game_active, int found_ai)
 {
   RValue stack = Utils::InstanceGet(game_active, "board_snapshots");
   while (!yytk->CallBuiltin("ds_stack_empty", {stack}))
@@ -21,12 +23,20 @@ void Undo(const RValue &game_active)
     RValue board_snapshot = yytk->CallBuiltin("ds_stack_pop", {stack});
     yytk->CallGameScript("gml_Script_board_snapshot_load", {board_snapshot});
   }
+  int current_round = Utils::InstanceGet(game_active, "round_count").ToInt32();
+  RValue last_ai_snapshot = Utils::GlobalGet("INFOWINDOW_last_ai_snapshot");
+  if (done_round == current_round && last_ai_snapshot.IsArray() && found_ai > -1 && Utils::InstanceGet(game_active, "teams")[found_ai]["turned"].ToBoolean()) {
+    yytk->CallGameScript("gml_Script_board_snapshot_load", {last_ai_snapshot});
+    Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", RValue());
+  }
 }
 
-int FindAi(const RValue &game_active, bool always_return_ai = false)
+int FindAi(const RValue &game_active, bool always_return_ai)
 {
-  if (!game_active.ToBoolean())
+  if (!game_active.ToBoolean()) {
+    done_round = -1;
     return -2;
+  }
   RValue ai_choicegraph = Utils::InstanceGet(game_active, "ai_choicegraph");
   bool scene_queued = yytk->CallGameScript("gml_Script_SCENE_QUEUED", {}).ToBoolean();
   if (!always_return_ai && (ai_choicegraph.ToBoolean() || scene_queued))
@@ -55,11 +65,9 @@ int FindAi(const RValue &game_active, bool always_return_ai = false)
   return found_ai;
 }
 
-int player_team = -1;
-
 void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
 {
-  Undo(game_active);
+  Undo(game_active, found_ai);
   yytk->CallGameScript("gml_Script_selector_stack_clear", {});
   yytk->CallGameScript("gml_Script_selection_mode_reset", {});
   yytk->CallGameScript("gml_Script_board_snapshot", {});
@@ -69,23 +77,18 @@ void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
   Utils::InstanceSet(game_active, "ai_choicegraph", aitree);
   RValue snapshot = yytk->CallGameScript("gml_Script_board_snapshot_save", {false});
   aitree["root_snapshot"] = snapshot;
+  Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", snapshot);
+  done_round = Utils::InstanceGet(game_active, "round_count").ToInt32();
 }
 
 void AutoMakeAi(const RValue &game_active)
 {
   int found_ai = FindAi(game_active);
   if (found_ai == -2)
-  {
-    player_team = -1;
     return;
-  }
-  if (player_team > -1 && Utils::InstanceGet(game_active, "teams")[player_team]["turned"].ToBoolean())
-    player_team = -1;
-  if (player_team >= 0)
+  int current_round = Utils::InstanceGet(game_active, "round_count").ToInt32();
+  if (done_round == current_round || found_ai < 0)
     return;
-  if (found_ai < 0)
-    return;
-  player_team = !found_ai;
   ActuallyMakeAi(game_active, found_ai);
 }
 
@@ -149,6 +152,7 @@ void CreateAiTree(const RValue &game_active)
     ai_choicegraph = ai_choicegraph["parent"];
   if (!ai_choicegraph["children"].IsArray() || !yytk->CallBuiltin("array_length", {ai_choicegraph["children"]}).ToInt32())
     return;
+  Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", ai_choicegraph["root_snapshot"]);
   sim_total = 0;
   max_eval = 0;
   aitree = AddBranch(ai_choicegraph);
@@ -438,6 +442,8 @@ void AiTab(bool *open)
   replay_saved_tree = false;
   if (auto_create_ai)
     AutoMakeAi(game_active);
+  if (!game_active.ToBoolean())
+      Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", RValue());
   if (!ImGui::Begin("AI Info", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
@@ -450,7 +456,7 @@ void AiTab(bool *open)
     SimulateTree();
   ImGui::SameLine();
   if (ImGui::Button("Undo & Delete AI") && game_active.ToBoolean()) {
-    Undo(game_active);
+    Undo(game_active, FindAi(game_active, true));
     DeleteAi(game_active);
   }
   ImGui::SameLine();
