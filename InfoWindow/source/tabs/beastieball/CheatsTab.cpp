@@ -393,13 +393,14 @@ void CheatsTab(bool *open)
       SavedataLoad();
   }
   RValue player = Utils::GetObjectInstance("objPlayer");
-  if (on_level_load_go)
+  bool player_exists = player.ToBoolean();
+  if (on_level_load_go && player_exists)
   {
     TeleportToPosition(player, on_level_load_go_to);
     on_level_load_go = false;
   }
   RValue game = Utils::GetObjectInstance("objGame");
-  if (teleport_on_middle_click && yytk->CallBuiltin("mouse_check_button_pressed", {3}))
+  if (teleport_on_middle_click && yytk->CallBuiltin("mouse_check_button_pressed", {3}) && player_exists)
     TeleportToMapWorldPosition(game, player, "mouse_world_x", "mouse_world_y", 380.0);
   DoDebugShortcuts(game);
 
@@ -407,9 +408,9 @@ void CheatsTab(bool *open)
   if (yytk->CallBuiltin("keyboard_check_pressed", {192}).ToBoolean())
     Utils::InstanceSet(game, "debug_console", !debug_menu);
 
-  if (draw_player_collision && player.ToBoolean())
+  if (draw_player_collision && player_exists)
     DrawPlayerCollision(player);
-  if (infinite_jumps)
+  if (infinite_jumps && player_exists)
   {
     if (yytk->CallBuiltin("keyboard_check_pressed", {32.0}).ToBoolean())
     {
@@ -418,10 +419,10 @@ void CheatsTab(bool *open)
     }
   }
 
-  if (keep_freecam)
+  if (keep_freecam && player_exists)
     KeepFreecam(player);
 
-  if (camera_always_follow_player)
+  if (camera_always_follow_player && player_exists)
   {
     RValue player_z = Utils::InstanceGet(player, "z");
     Utils::InstanceSet(player, "z_last", player_z);
@@ -440,7 +441,7 @@ void CheatsTab(bool *open)
   ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
   ImGui::Checkbox("Camera Always Follow Player", &camera_always_follow_player);
   ImGui::SameLine();
-  if (ImGui::Checkbox("Keep Freecam Shot", &keep_freecam) && !keep_freecam)
+  if (ImGui::Checkbox("Keep Freecam Shot", &keep_freecam) && !keep_freecam && player_exists)
     KeepFreecam(player);
   ImGui::Checkbox("Pause Buffer when RShift held.", &do_pause_buffering);
 
@@ -452,15 +453,13 @@ void CheatsTab(bool *open)
   if (ImGui::Button("Reload Level"))
     ReloadLevel(game);
 
-  if (ImGui::Button("Teleport to Map Center"))
+  if (ImGui::Button("Teleport to Map Center") && player_exists)
     TeleportToMapWorldPosition(game, player, "world_x", "world_y");
   ImGui::Checkbox("Teleport to mouse on Middle Click", &teleport_on_middle_click);
 
   ImGui::Text("Player Variables");
-  if (player.ToBoolean())
-  {
+  if (player_exists)
     DisplayPlayerVars(player);
-  }
 
   ImGui::Text("Save Files:");
   ImGui::BeginChild("saves", ImVec2(0, 0), ImGuiChildFlags_Borders);
