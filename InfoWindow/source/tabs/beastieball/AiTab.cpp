@@ -449,8 +449,10 @@ void AiTab(bool *open)
   if (ImGui::Button("Simulate Chances"))
     SimulateTree();
   ImGui::SameLine();
-  if (ImGui::Button("Undo"))
+  if (ImGui::Button("Undo & Delete AI") && game_active.ToBoolean()) {
     Undo(game_active);
+    DeleteAi(game_active);
+  }
   ImGui::SameLine();
   ImGui::Checkbox("Auto Create AI", &auto_create_ai);
   DrawPreferTarget(game_active);
