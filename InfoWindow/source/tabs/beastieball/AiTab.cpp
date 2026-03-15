@@ -25,7 +25,7 @@ void Undo(const RValue &game_active, int found_ai)
   }
   int current_round = Utils::InstanceGet(game_active, "round_count").ToInt32();
   RValue last_ai_snapshot = Utils::GlobalGet("INFOWINDOW_last_ai_snapshot");
-  if (done_round == current_round && last_ai_snapshot.IsArray() && found_ai > -1 && Utils::InstanceGet(game_active, "teams")[found_ai]["turned"].ToBoolean()) {
+  if (done_round == current_round && last_ai_snapshot.m_Kind == VALUE_ARRAY && found_ai > -1 && Utils::InstanceGet(game_active, "teams")[found_ai]["turned"].ToBoolean()) {
     yytk->CallGameScript("gml_Script_board_snapshot_load", {last_ai_snapshot});
     Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", RValue());
   }
