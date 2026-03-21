@@ -134,7 +134,8 @@ std::filesystem::path save_dir = "mod_data/";
 void CodeCallback(FWCodeEvent &Event)
 {
 	auto [Self, Other, Code, ArgCount, Arg] = Event.Arguments();
-	Event.Call(Self, Other, Code, ArgCount, Arg);
+	if (!Event.CalledOriginal())
+		Event.Call(Self, Other, Code, ArgCount, Arg);
 
 	std::string name = Code->GetName();
 
