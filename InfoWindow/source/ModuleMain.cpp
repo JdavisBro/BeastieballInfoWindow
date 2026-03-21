@@ -1,3 +1,4 @@
+#include "ModuleMain.h"
 #include <YYToolkit/YYTK_Shared.hpp>
 
 #include <fstream>
@@ -156,7 +157,12 @@ void CodeCallback(FWCodeEvent &Event)
 	{
 		if (name != "gml_Object_objGame_Draw_0")
 			return;
+		#ifndef DO_INFOWINDOW
+		bool open = true;
+		GachaTab::GachaTab(&open);
+		#endif
 	}
+	#ifdef DO_INFOWINDOW
 	else
 	{
 		if (name.ends_with("Draw_0"))
@@ -169,6 +175,7 @@ void CodeCallback(FWCodeEvent &Event)
 			return;
 		}
 	}
+
 
 	has_drawn = true;
 	static bool window_exists = false;
@@ -187,11 +194,18 @@ void CodeCallback(FWCodeEvent &Event)
 			DbgPrint("[InfoWindow] Window Creation Failed.");
 		}
 	}
+	#endif
 	if (!hooks_done)
 	{
+		#ifndef DO_INFOWINDOW
+		Utils::Setup();
+		#endif
 		BeastieballCheck();
 		DoHooks();
 	}
+	#ifndef DO_INFOWINDOW
+	return;
+	#endif
 
 	ImGuiID dockspace;
 	if (!ImguiFrameSetup(dockspace))

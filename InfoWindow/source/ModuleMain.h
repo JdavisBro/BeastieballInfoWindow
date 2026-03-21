@@ -3,4 +3,6 @@
 using namespace Aurie;
 using namespace YYTK;
 
+#define DO_INFOWINDOW
+
 extern YYTKInterface *yytk;

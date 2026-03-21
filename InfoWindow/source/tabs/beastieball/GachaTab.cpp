@@ -2020,6 +2020,7 @@ void GachaTab(bool *open)
   RenderScene();
   if (yytk->CallBuiltin("keyboard_check_pressed", {114.0}).ToBoolean())
     OpenMenu();
+  #ifdef DO_INFOWINDOW
   if (!ImGui::Begin("Gacha", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
@@ -2029,6 +2030,7 @@ void GachaTab(bool *open)
     OpenMenu();
   EditGachaMenu();
   ImGui::End();
+	#endif
 }
 
 void Store()
