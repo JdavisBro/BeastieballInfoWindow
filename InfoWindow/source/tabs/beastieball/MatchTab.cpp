@@ -47,7 +47,7 @@ bool IsExcludedName(std::string &name)
 
 GameplayState SaveState(RValue &game)
 {
-  AiTab::Undo(game);
+  AiTab::Undo(game, AiTab::FindAi(game, true));
   GameplayState state;
   state.name = std::format("Turn {:03d}", Utils::InstanceGet(game, "round_count").ToInt32());
   std::vector<RValue> names = yytk->CallBuiltin("variable_instance_get_names", {game}).ToVector();
@@ -83,7 +83,7 @@ bool auto_create_ai_after_load = true;
 
 void LoadState(RValue &game, GameplayState &state)
 {
-  AiTab::Undo(game);
+  AiTab::Undo(game, AiTab::FindAi(game, true));
   for (auto data : state.normal_values)
   {
     Utils::InstanceSet(game, data.first, data.second);
@@ -95,8 +95,8 @@ void LoadState(RValue &game, GameplayState &state)
   }
   Utils::InstanceSet(game, "ai_choicegraph", RValue());
   Utils::InstanceSet(game, "ai_selecting", -1);
-  if (auto_create_ai_after_load)
-    AiTab::MakeAi(game); // from AiTab
+  // if (auto_create_ai_after_load)
+  //   AiTab::MakeAi(game); // from AiTab
 }
 
 int selected = 0;

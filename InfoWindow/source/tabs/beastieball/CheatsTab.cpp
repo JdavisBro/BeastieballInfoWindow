@@ -52,6 +52,13 @@ RValue FindLevel(double x, double y)
   return fallback;
 }
 
+void LevelGoto(const RValue &level_id, bool loading = false)
+{
+  yytk->CallGameScript("gml_Script_SceneLayerIn", {});
+  yytk->CallGameScript("gml_Script_SceneAdd", {yytk->CallBuiltin("asset_get_index", {"level_goto"}), level_id, loading});
+  yytk->CallGameScript("gml_Script_SceneLayerOut", {});
+}
+
 void TeleportToMapWorldPosition(RValue &game, RValue &player, const char *x_key, const char *y_key, double x_offset = 0, double y_offset = 0)
 {
   RValue map = Utils::InstanceGet(game, "mn_map");
@@ -75,7 +82,7 @@ void TeleportToMapWorldPosition(RValue &game, RValue &player, const char *x_key,
     return;
   }
   on_level_load_go = true;
-  yytk->CallGameScript("gml_Script_level_goto", {level["name"]});
+  LevelGoto(level["name"]);
 }
 
 void SaveTable(int &slot)
@@ -126,7 +133,7 @@ void ReloadLevel(const RValue &game)
   yytk->CallGameScript("gml_Script_data_update_player_pos", {});
   yytk->CallGameScript("gml_Script_SceneClear", {});
   RValue level_id = Utils::InstanceGet(game, "level_id");
-  yytk->CallGameScript("gml_Script_level_goto", {level_id, true});
+  LevelGoto(level_id, true);
 }
 
 void SetGroupRenders(RValue &group)
@@ -366,6 +373,15 @@ void KeepFreecam(const RValue &player)
   Utils::InstanceSet(scenemanager, "camera_projection_mode", (keep_freecam && !freecam) ? 3 : old_proj_mode);
 }
 
+void SavedataLoad()
+{
+  yytk->CallGameScript("gml_Script_SceneLayerIn", {});
+  yytk->CallGameScript("gml_Script_SceneAdd", {yytk->CallBuiltin("asset_get_index", {"savedata_load"})});
+  yytk->CallGameScript("gml_Script_SceneAdd", {yytk->CallBuiltin("asset_get_index", {"data_load_level"})});
+  yytk->CallGameScript("gml_Script_SceneAdd", {yytk->CallBuiltin("asset_get_index", {"menu_level_out_all"})});
+  yytk->CallGameScript("gml_Script_SceneLayerOut", {});
+}
+
 bool auto_load = false;
 bool was_init = true;
 
@@ -373,20 +389,18 @@ void CheatsTab(bool *open)
 {
   if (was_init && !Utils::ObjectInstanceExists("objInit")) {
     was_init = false;
-    if (auto_load) {
-      yytk->CallGameScript("gml_Script_savedata_load", {});
-      yytk->CallGameScript("gml_Script_data_load_level", {});
-      yytk->CallGameScript("gml_Script_menu_level_out_all", {});
-    }
+    if (auto_load)
+      SavedataLoad();
   }
   RValue player = Utils::GetObjectInstance("objPlayer");
-  if (on_level_load_go)
+  bool player_exists = player.ToBoolean();
+  if (on_level_load_go && player_exists)
   {
     TeleportToPosition(player, on_level_load_go_to);
     on_level_load_go = false;
   }
   RValue game = Utils::GetObjectInstance("objGame");
-  if (teleport_on_middle_click && yytk->CallBuiltin("mouse_check_button_pressed", {3}))
+  if (teleport_on_middle_click && yytk->CallBuiltin("mouse_check_button_pressed", {3}) && player_exists)
     TeleportToMapWorldPosition(game, player, "mouse_world_x", "mouse_world_y", 380.0);
   DoDebugShortcuts(game);
 
@@ -394,9 +408,9 @@ void CheatsTab(bool *open)
   if (yytk->CallBuiltin("keyboard_check_pressed", {192}).ToBoolean())
     Utils::InstanceSet(game, "debug_console", !debug_menu);
 
-  if (draw_player_collision && player.ToBoolean())
+  if (draw_player_collision && player_exists)
     DrawPlayerCollision(player);
-  if (infinite_jumps)
+  if (infinite_jumps && player_exists)
   {
     if (yytk->CallBuiltin("keyboard_check_pressed", {32.0}).ToBoolean())
     {
@@ -405,10 +419,10 @@ void CheatsTab(bool *open)
     }
   }
 
-  if (keep_freecam)
+  if (keep_freecam && player_exists)
     KeepFreecam(player);
 
-  if (camera_always_follow_player)
+  if (camera_always_follow_player && player_exists)
   {
     RValue player_z = Utils::InstanceGet(player, "z");
     Utils::InstanceSet(player, "z_last", player_z);
@@ -427,7 +441,7 @@ void CheatsTab(bool *open)
   ImGui::Checkbox("Infinite Jumps", &infinite_jumps);
   ImGui::Checkbox("Camera Always Follow Player", &camera_always_follow_player);
   ImGui::SameLine();
-  if (ImGui::Checkbox("Keep Freecam Shot", &keep_freecam) && !keep_freecam)
+  if (ImGui::Checkbox("Keep Freecam Shot", &keep_freecam) && !keep_freecam && player_exists)
     KeepFreecam(player);
   ImGui::Checkbox("Pause Buffer when RShift held.", &do_pause_buffering);
 
@@ -439,15 +453,13 @@ void CheatsTab(bool *open)
   if (ImGui::Button("Reload Level"))
     ReloadLevel(game);
 
-  if (ImGui::Button("Teleport to Map Center"))
+  if (ImGui::Button("Teleport to Map Center") && player_exists)
     TeleportToMapWorldPosition(game, player, "world_x", "world_y");
   ImGui::Checkbox("Teleport to mouse on Middle Click", &teleport_on_middle_click);
 
   ImGui::Text("Player Variables");
-  if (player.ToBoolean())
-  {
+  if (player_exists)
     DisplayPlayerVars(player);
-  }
 
   ImGui::Text("Save Files:");
   ImGui::BeginChild("saves", ImVec2(0, 0), ImGuiChildFlags_Borders);
@@ -460,11 +472,7 @@ void CheatsTab(bool *open)
     yytk->CallGameScript("gml_Script_savedata_save", {});
   ImGui::SameLine();
   if (ImGui::Button("Load"))
-  {
-    yytk->CallGameScript("gml_Script_savedata_load", {});
-    yytk->CallGameScript("gml_Script_data_load_level", {});
-    yytk->CallGameScript("gml_Script_menu_level_out_all", {});
-  }
+    SavedataLoad();
   ImGui::SameLine();
   ImGui::Checkbox("Load last save on startup", &auto_load);
   SaveTable(slot);

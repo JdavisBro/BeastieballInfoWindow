@@ -26,6 +26,8 @@ TRoutine asset_get_index;
 TRoutine instance_exists;
 TRoutine instance_find;
 
+TRoutine script_execute_ext;
+
 void Setup()
 {
     yytk->GetNamedRoutinePointer("variable_instance_exists", reinterpret_cast<PVOID *>(&variable_instance_exists));
@@ -39,6 +41,8 @@ void Setup()
     yytk->GetNamedRoutinePointer("asset_get_index", reinterpret_cast<PVOID *>(&asset_get_index));
     yytk->GetNamedRoutinePointer("instance_exists", reinterpret_cast<PVOID *>(&instance_exists));
     yytk->GetNamedRoutinePointer("instance_find", reinterpret_cast<PVOID *>(&instance_find));
+
+    yytk->GetNamedRoutinePointer("script_execute_ext", reinterpret_cast<PVOID *>(&script_execute_ext));
 }
 
 bool InstanceExists(const RValue &instance, const RValue &key)
@@ -137,7 +141,11 @@ bool ObjectInstanceExists(const char *object_name)
 
 RValue CallStructMethod(const RValue &object, const char *method, std::vector<RValue> args)
 {
-    return yytk->CallBuiltin("method_call", {yytk->CallBuiltin("method", {object, object[method]}), RValue(args)});
+    RValue result;
+    bool has_args = args.empty();
+    std::vector<RValue> scr_args = {object[method], has_args ? RValue() : RValue(args)};
+    script_execute_ext(result, object.ToInstance(), nullptr, static_cast<int>(has_args ? 1 : 2), scr_args.data());
+    return result;
 }
 
 
