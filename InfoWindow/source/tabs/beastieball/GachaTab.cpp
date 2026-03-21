@@ -886,9 +886,10 @@ bool MySceneFrame()
       beastie_pos.pos = Vec3EaseInSin(beastie_pos.middle_pos, beastie_pos.end_pos, prog);
       renderer["image_angle"] = EaseInSin(0, beastie_pos.angle, prog);
       if (tween_progress > 1.8 && tween_progress - delta <= 1.8 && renderer["animation_state"][0].ToString() != beastie_pos.anim) {
-        yytk->CallGameScript("gml_Script_char_animation", {renderer, RValue(beastie_pos.anim), 0, RValue(), false, true});
         Utils::CallStructMethod(renderer["char"], "play_vo_hello", {});
       }
+      if (tween_progress > 1.8)
+        yytk->CallGameScript("gml_Script_char_animation", {renderer, RValue(beastie_pos.anim), 0, RValue(), false, true});
       if (tween_progress < 2)
         impact.drawing = false;
       if (tween_progress > 1.5 && tween_progress - delta <= 1.5 && !is_scene_skipped) {
@@ -923,11 +924,15 @@ bool MySceneFrame()
         yytk->CallGameScript("gml_Script_audio_param_tween", {"slomo", 100, 0.5});
       }
       if (tween_progress > 1.9) {
-        if (!impact.drawing && !is_scene_skipped) {
-          yytk->CallGameScript("gml_Script_container_play", {"ui_ball_receive_chance"});
-          Utils::InstanceSet(scene_manager, "screen_shake_amt", 5);
-          Utils::InstanceSet(scene_manager, "screen_shake_time", 0.3);
+        if (!impact.drawing) {
+          if (!is_scene_skipped) {
+            yytk->CallGameScript("gml_Script_container_play", {"ui_ball_receive_chance"});
+            Utils::InstanceSet(scene_manager, "screen_shake_amt", 5);
+            Utils::InstanceSet(scene_manager, "screen_shake_time", 0.3);
+          }
           yytk->CallGameScript("gml_Script_audio_param_tween", {"slomo", 0, 0.2});
+        }
+        else if (!impact.drawing) {
         }
         impact.pos = drawer.end_pos;
         impact.color = -1;
