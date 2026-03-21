@@ -156,6 +156,7 @@ struct BeastiePos {
   double y_scale = 1.0;
   bool front_of_text = false;
   double rotation = 0.0;
+  double alpha = 1.0;
 };
 
 struct SpritePos {
@@ -261,15 +262,44 @@ std::map<std::string, GachaType> gachas = {
   {"starter", {
     "Starters",
     {
-      {"some text here", 0.25, 0.5, 1.5, 0xFF0000},
+      {"Beginning to end,", 0.3, 0.83, 1.25, 0xFFFFFF, true},
+      {scentered"[scale,1.25][rainbow]with you", 0.35, 0.925, 1, 0xFFFFFF, true, true},
+      {"Sprecko", 0.08, 0.73, 0.5, 0xFFFFFF, true},
+      {"Bildit", 0.31, 0.73, 0.5, 0xFFFFFF, true},
+      {"Kichik", 0.57, 0.73, 0.5, 0xFFFFFF, true},
+      {"Axolati", 0.775, 0.73, 0.5, 0xFFFFFF, true},
     },
     {
-      {"frog", "good", 0.75, 0.75, 1.5, 1.5},
+      {"frog", "good", 0.775, 0.73, 1.2, 1.2, false, 0, 0.1},
+      {"frog2", "good", 0.775, 0.73, 1.2, 1.2, false, 0, 0.25},
+      
+      {"cassowary", "spike", 0.57, 0.73, 1.2, 1.2, false, 0, 0.1},
+      {"cassowary2", "spike", 0.57, 0.73, 1.2, 1.2, false, 0, 0.25},
+      
+      {"bilby", "ready", 0.31, 0.73, -1.2, 1.2, false, 0, 0.1},
+      {"bilby2", "ready", 0.31, 0.73, -1.2, 1.2, false, 0, 0.25},
+
+      {"shroom_b", "good", -0.0395, 0.73, -1.2, 1.2, false, 0, 0.15},
+      {"shroom_s", "good", 0.05, 0.73, -1.2, 1.2, false, 0, 0.15},
+      {"shroom_m", "good", 0.18, 0.73, -1.2, 1.2, false, 0, 0.15},
+            
+      {"frog1", "good", 0.775, 0.73, 1.2, 1.2},
+      {"cassowary1", "spike", 0.57, 0.73, 1.2, 1.2},
+      {"shroom1", "good", 0.05, 0.73, -1.2, 1.2},
+      {"bilby1", "ready", 0.31, 0.73, -1.2, 1.2},
     },
-    { },
-    { { 0.2, 0.2, 0, 1 }, { 0.5, 0.2, 1, 1 }, { 0.2, 0.4, 0, 2 } },
-    -1,
-    {},
+    {
+      {"sprBall", 2, 0.46, 0.37, 0.7, 0.7, 0, 1.5},
+      {"sprBall", 1, 0.46, 0.37, 0.7, 0.7},
+    },
+    { { 0.8, 0.8, 1, 1 }, { 0.8, 0.9, 1, 2 }, { 0.15, 0.2, 0, 1 } },
+    1,
+    {
+      { {"shroom1"} },
+      { {"cassowary1"}, {"frog1"}, {"bilby1"} },
+      default_item_drops,
+      0.02, 0.10, 0.88,
+    },
     "gacha_amberstone",
   }},
 };
@@ -466,8 +496,11 @@ RValue &BeastieSpecieInPartyArray(CInstance *Self, CInstance *Other, RValue &Ret
       RValue char_dic = Utils::GlobalGet("char_dic");
       RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie["specie"]});
       RValue family_species = yytk->CallBuiltin("ds_map_find_value", {char_dic, species["family"]});
-      if (BeastieCanMetamorph(beastie, family_species, family_species["id"].ToCString()) == 0)
+      if (BeastieCanMetamorph(beastie, family_species, family_species["id"].ToCString()) == 0) {
         yytk->CallBuiltin("array_delete", {ReturnValue, i, 1});
+        i--;
+        array_length--;
+      }
     }
   }
   return ReturnValue;
@@ -1301,7 +1334,7 @@ void DrawBeastieLayout(std::vector<BeastiePos> &beastie_layout, bool after_text)
     yytk->CallGameScript("gml_Script_draw_monster_menu", {
       species,
       yytk->CallGameScript("gml_Script_canvas_x", {beastie.x, beastie.y}), yytk->CallGameScript("gml_Script_canvas_y", {beastie.y}),
-      1.0, 1.0, beastie.x_scale, beastie.y_scale, beastie.rotation, beastie.animation
+      1.0, beastie.alpha, beastie.x_scale, beastie.y_scale, beastie.rotation, beastie.animation
       });
   }
 }
@@ -1772,6 +1805,7 @@ void EditGachaMenu()
   ImGui::InputDouble("Y Scale", &beastie.y_scale, 0.01, 0.1, "%f");
   ImGui::InputDouble("Rotation", &beastie.rotation, 1.0, 10.0, "%f");
   ImGui::Checkbox("In front of text", &beastie.front_of_text);
+  ImGui::InputDouble("Alpha", &beastie.alpha, 0.0, 0.0);
   ImGui::EndChild();
 
   size_t text_count = gacha.text.size();
