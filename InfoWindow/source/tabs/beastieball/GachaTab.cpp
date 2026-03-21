@@ -221,8 +221,8 @@ struct GachaType {
 
 #define scentered "[fa_center][fa_middle]"
 
-GachaType gachas[] = {
-  {
+std::map<std::string, GachaType> gachas = {
+  {"amberstone", {
     "Amberstone",
     {
       {"Beasts of", 0.2, 0.38, 1.5},
@@ -257,8 +257,8 @@ GachaType gachas[] = {
       default_item_drops,
     },
     "gacha_amberstone",
-  },
-  {
+  }},
+  {"starter", {
     "Starters",
     {
       {"some text here", 0.25, 0.5, 1.5, 0xFF0000},
@@ -271,9 +271,12 @@ GachaType gachas[] = {
     -1,
     {},
     "gacha_amberstone",
-  },
+  }},
 };
-int gacha_count = 2;
+
+GachaType *active_gacha = &gachas["amberstone"];
+
+size_t gacha_count = 2;
 
 enum GachaResultType {
   GACHA_BEASTIE,
@@ -1483,9 +1486,9 @@ void DrawGachaResultsMenu(RValue &current_menu)
   }
   int pull_buttons_y = gacha_count == 1 ? 1 : 2;
   if (DrawPullButton(scentered"Recruit 1 [sprItems,6]x1", {0.5, 0.9, 2, pull_buttons_y}, menu))
-    DoGachaPull(gachas[gacha_open], 1);
+    DoGachaPull(*active_gacha, 1);
   if (DrawPullButton(scentered"Recruit 10 [sprItems,6]x10", {0.8, 0.9, 4, pull_buttons_y}, menu))
-    DoGachaPull(gachas[gacha_open], 10);
+    DoGachaPull(*active_gacha, 10);
 }
 
 double max_gacha_scroll = 1.0;
@@ -1553,7 +1556,7 @@ void DrawGachaRatesMenu(RValue &current_menu)
   GachaRatesHandleInput(menu);
   double y_pos_start = menu["selectX_anim"].ToDouble();
   double y_pos = 0 - y_pos_start;
-  GachaType &gacha = gachas[gacha_open];
+  GachaType &gacha = *active_gacha;
   RValue item_dic = Utils::GlobalGet("item_dic");
   std::vector<DropRate> rates;
   RValue char_dic = Utils::GlobalGet("char_dic");
@@ -1608,7 +1611,7 @@ void OpenGachaRates()
 
 void HandleInput(const RValue &menu)
 {
-  GachaType &gacha = gachas[gacha_open];
+  GachaType &gacha = *active_gacha;
   int old_x = menu["selectX"].ToInt32();
   int old_y = menu["selectY"].ToInt32();
   int new_x = old_x;
@@ -1666,6 +1669,17 @@ void HandleInput(const RValue &menu)
   Utils::InstanceSet(menu, "selectY", new_y);
 }
 
+std::vector<std::string> GetVisibleGachas()
+{
+  std::vector<std::string> visible_gachas = {"amberstone", "starter"};
+  std::string level_palette = yytk->CallGameScript("gml_Script_level_get_data", {})["palette_name"].ToString();
+  if (level_palette == "cliffs") {
+    visible_gachas[0] = "amberstone";
+  }
+  gacha_count = visible_gachas.size();
+  return visible_gachas;
+}
+
 void DrawGachaMenu()
 {
   if (do_scene_render)
@@ -1685,14 +1699,17 @@ void DrawGachaMenu()
   }
   SetFont();
   HandleInput(menu);
-  double header_dist = 1. / double(gacha_count + 1);
+  std::vector<std::string> visible_gachas = GetVisibleGachas();
+  size_t visible_count = visible_gachas.size();
+  double header_dist = 1. / double(visible_count + 1);
   double x_pos = 0;
-  for (int i = 0; i < gacha_count; i++) {
-    GachaType &gacha = gachas[i];
+  for (size_t i = 0; i < visible_count; i++) {
+    GachaType &gacha = gachas[visible_gachas[i]];
     x_pos += header_dist;
     if (DrawMenuButton(x_pos, 0.075, gacha.name, i, 0, menu, gacha_open == i))
       gacha_open = i;
     if (gacha_open == i) {
+      active_gacha = &gacha;
       DrawSprites(gacha.sprites, false);
       DrawBeastieLayout(gacha.beastie_layout, false);
       DrawTextPoses(gacha.text, false);
@@ -1711,7 +1728,7 @@ void DrawGachaMenu()
   DrawControls();
 }
 
-int editing_gacha = 0;
+std::string editing_gacha = "amberstone";
 int editing_beastie = 0;
 int editing_text = 0;
 int editing_sprites = 0;
@@ -1719,16 +1736,16 @@ void EditGachaMenu()
 {
   if (ImGui::Button("Give 10 Jerseys"))
     yytk->CallGameScript("gml_Script_item_get", {"jersey", 10});
-  bool fourplus = gachas[0].rates.weight_4 > 0.5;
-  if (ImGui::Checkbox("Only 4+", &fourplus))
-    gachas[0].rates.weight_4 = 0.98;
+  if (gachas[editing_gacha].rates.weight_4 < 0.5 && ImGui::Button("Only 4+"))
+    gachas[editing_gacha].rates.weight_4 = 0.98;
+  else if (gachas[editing_gacha].rates.weight_4 > 0.5 && ImGui::Button("Normal Rates"))
+    gachas[editing_gacha].rates.weight_4 = 0.20;
   if (ImGui::BeginCombo("Editing", gachas[editing_gacha].name))
   {
-    for (int i = 0; i < gacha_count; i++)
+    for (auto g = gachas.begin(); g != gachas.end(); g++)
     {
-      GachaType &gacha = gachas[i];
-      if (ImGui::Selectable(gacha.name, editing_gacha == i))
-        editing_gacha = i;
+      if (ImGui::Selectable(g->second.name, g->first == editing_gacha))
+        editing_gacha = g->first;
     }
     ImGui::EndCombo();
   }
