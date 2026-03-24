@@ -24,7 +24,7 @@ jobs:
 
     strategy:
       matrix:
-        branch: [main, yytk_v4]
+        branch: [main]
 
     steps:
       - name: Checkout Repo
@@ -58,8 +58,9 @@ jobs:
     steps:
       - name: Download artifacts
         uses: actions/download-artifact@v7
-      - run: |
-          gh release delete latest --cleanup-tag --yes
+      - name: Delete previous release
+        run: gh release delete latest --cleanup-tag --yes
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GH_REPO: ${{ github.repository }}
@@ -70,6 +71,6 @@ jobs:
           name: Latest
           fail_on_unmatched_files: true
           files: |
-            */*
+            **/*
           body: |
             Latest Builds

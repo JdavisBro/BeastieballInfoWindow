@@ -28,7 +28,7 @@ bool is_beastieball = false;
 
 void BeastieballCheck()
 {
-	is_beastieball = Utils::GlobalExists("sprite_beastie_ball_impact");
+	is_beastieball = yytk->CallBuiltin("asset_get_index", {"beastie_ball_impact_pos_setup"}).ToBoolean();
 	if (is_beastieball)
 	{
 		DbgPrint("Beastieball!");
