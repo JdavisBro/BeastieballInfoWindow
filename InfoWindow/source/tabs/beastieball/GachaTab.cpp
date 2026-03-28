@@ -819,7 +819,9 @@ bool MySceneFrame()
   double delta = delta_rv.ToDouble() / 1'000'000;
   size_t gacha_pull_size = gacha_pull.size();
   if (!Utils::GlobalExists("GACHA_SCENE_RENDERERS") || !yytk->CallBuiltin("array_length", {Utils::GlobalGet("GACHA_SCENE_RENDERERS")}).ToBoolean()) {
-    Utils::InstanceSet(Utils::GetObjectInstance("objPlayer"), "visible", false);
+    RValue player = Utils::GetObjectInstance("objPlayer");
+    Utils::InstanceSet(player, "visible", false);
+    Utils::InstanceSet(player, "followers_enable", -1);
     RValue renderers = yytk->CallBuiltin("array_create", {gacha_pull_size});
     camera_locations.clear();
     camera_locations.resize(gacha_pull_size + 2);
