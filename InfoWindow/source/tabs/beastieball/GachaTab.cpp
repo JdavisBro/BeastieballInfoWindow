@@ -137,6 +137,8 @@ void BuiltinHook(const char *HookId, const char *FnName, PVOID HookFunction, PVO
     DbgPrintEx(LOG_SEVERITY_INFO, "Hook created for %s!", FnName);
 }
 
+// MARK: Gacha Structs
+
 struct TextPos {
   const char *text;
   double x;
@@ -188,6 +190,8 @@ struct ItemDrop {
   int rarity = 3;
   double weight = 3 / (double)rarity * 2;
 };
+
+// MARK: Gacha Defs
 
 std::vector<ItemDrop> default_item_drops = {
   {"heal_b", 1}, {"heal_c", 2},
@@ -258,6 +262,42 @@ std::map<std::string, GachaType> gachas = {
       default_item_drops,
     },
     "gacha_amberstone",
+  }},
+  {"mythwood", {
+    "Mythwood",
+    {
+      {"In the mist", 0.5, 0.2, 1, 0xFFFFFF, true},
+      {scentered"[ftBold][scale,1.2]of [#10cb78]MYTHWOOD", 0.5, 0.29, 1, 0xFFFFFF, true, true},
+      {"Albrax", 0.4, 0.67, 1, 0xFFFFFF, true},
+      {scentered"[scale,0.125][sprBall,2][sprBall,2][sprBall,2][sprBall,2][sprBall,2]", 0.4, 0.72, 1, 0xFFFFFF, true, true},
+      {"Descended from Above", 0.4, 0.745, 0.23, 0xFFFFFF, true},
+      {"Drop Rate Up!", 0.471, 0.63, 0.4, 0xFFFFFF, true},
+    },
+    {
+      {"tricky", "menu", 0.68, 0.38, 0.8, 0.8, false, 95},
+      {"shy", "menu", 0.93, 0.44, 0.8, 0.8, false, 30},
+      {"okapi", "spike", 0.57, 0.83, 0.8, 0.8},
+      {"football", "menu", 0.23, 0.50, -0.8, 0.8, false, -18},
+      {"ghost", "ready", 0.14, 0.83, -0.8, 0.8},
+      {"clown", "menu", 0.94, 0.18, 0.8, 0.8, false, 115},
+      {"mantis", "menu", 0.70, 0.85, 0.8, 0.8},
+      {"millipede", "menu", 0.91, 0.81, 0.8, 0.8, false, 10},
+      {"monkey", "menu", 0.08, 0.43, -0.8, 0.8, false, -10},
+      {"rocklizard", "spike", 0.06, 0.60, -0.8, 0.8, false, 40},
+      {"alien", "spike", 0.33, 0.89, -0.8, 0.8},
+    },
+    {
+      {"sprBall", 2, 0.5, 0.5, 0.5, 0.5, 0, 1.5},
+      {"sprBall", 1, 0.5, 0.5, 0.5, 0.5},
+    },
+    { { 0.45, 0.9, 1, 1 }, { 0.8, 0.9, 2, 1 }, { 0.15, 0.9, 0, 1 } },
+    1,
+    {
+      { {"alien1", 3}, {"tricky1"}, {"okapi"}, {"fox1"} },
+      { {"football1"}, {"clown1"}, {"ghost1"}, {"shy"}, {"mantis"}, {"monkey"}, {"rocklizard1"}, {"millipede1"} },
+      default_item_drops,
+    },
+    "gacha_mythwood",
   }},
   {"starter", {
     "Starters",
@@ -399,7 +439,7 @@ std::map<std::string, std::vector<std::string>> metamorph_lines = {
   {"psychic", {"psychic"}},
   // MINES (probably add to woods)
   {"wizard", {"wizard"}},
-  {"rocklizard1", {"rocklizard1", "rockllizard2", "rocklizard"}},
+  {"rocklizard1", {"rocklizard1", "rocklizard2", "rocklizard"}},
   {"millipede1", {"millipede1", "millipede"}},
   // CITY
   {"rat", {"rat"}},
@@ -1568,7 +1608,10 @@ void AddRatesForBeastie(double &y_pos, double *rarity_weight, double *total_rari
   *rarity_weight += drop.weight;
   if (y_pos > rates_display_min || y_pos < rates_display_max) {
     RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, drop.family});
-    rates.push_back({beastie["name"].ToString(), y_pos, rarity, drop.weight, rarity_weight, total_rarity_weight});
+    if (!beastie.ToBoolean())
+      DbgPrint("%s not found", drop.family);
+    else
+      rates.push_back({beastie["name"].ToString(), y_pos, rarity, drop.weight, rarity_weight, total_rarity_weight});
   }
   bool is_divergant = strcmp(drop.family, "shroom1") > -1 || strcmp(drop.family, "spirit1") > -1;
   std::vector<std::string> line = metamorph_lines[drop.family];
@@ -1578,7 +1621,10 @@ void AddRatesForBeastie(double &y_pos, double *rarity_weight, double *total_rari
     if (y_pos < rates_display_min || y_pos > rates_display_max) continue;
     RValue beastie = yytk->CallBuiltin("ds_map_find_value", {char_dic, RValue(line[i])});
     int meta_pos = is_divergant ? 3 : (int)floor(i / (double)(line_size) * 6.0);
-    rates.push_back({std::format("[scale,0.5]Can metamorph to {} at COACHED {}/6", beastie["name"].ToString(), meta_pos), y_pos});
+    if (!beastie.ToBoolean())
+      DbgPrint("%s not found", line[i]);
+    else
+      rates.push_back({std::format("[scale,0.5]Can metamorph to {} at COACHED {}/6", beastie["name"].ToString(), meta_pos), y_pos});
   }
   if (line_size > 1) y_pos -= rates_small_back_spacing;
 }
@@ -1713,6 +1759,9 @@ std::vector<std::string> GetVisibleGachas()
   std::string level_palette = yytk->CallGameScript("gml_Script_level_get_data", {})["palette_name"].ToString();
   if (level_palette == "cliffs") {
     visible_gachas[0] = "amberstone";
+  }
+  else if (level_palette == "woods") {
+    visible_gachas[0] = "mythwood";
   }
   gacha_count = visible_gachas.size();
   return visible_gachas;
