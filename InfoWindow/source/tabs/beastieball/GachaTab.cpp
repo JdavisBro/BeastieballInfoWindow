@@ -121,6 +121,25 @@ RValue &EvAdjust(CInstance *Self, CInstance *Other, RValue &ReturnValue, int num
   return ReturnValue;
 }
 
+const char *level_stumps[] = {
+  R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_amberstone","world_x1" : -18001,"world_x2" : -16001,"world_y1" : 26394,"world_y2" : 28794})",
+  R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_mythwood","world_x1" : -16001,"world_x2" : -14001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "woods"})",
+};
+
+PFUNC_YYGMLScript worldDataInit = nullptr;
+RValue &WorldDataInit(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  worldDataInit(Self, Other, ReturnValue, numArgs, Args);
+  RValue world_data = Utils::GlobalGet("world_data");
+  RValue stumps_array = world_data["level_stumps_array"];
+  for (const char *level_stump : level_stumps) {
+    RValue level = yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {level_stump})});
+    yytk->CallBuiltin("array_push", {stumps_array, level});
+  }
+  Utils::CallStructMethod(world_data, "quadtree_reset", {});
+  return ReturnValue;
+}
+
 void BuiltinHook(const char *HookId, const char *FnName, PVOID HookFunction, PVOID *Trampoline)
 {
   PVOID function = nullptr;
@@ -1996,6 +2015,7 @@ void GachaHooks()
   RequestHook(NULL, "gml_Script_beastie_specie_in_party", "IW beastie_specie_in_party", BeastieSpecieInParty, reinterpret_cast<PVOID *>(&beastieSpecieInParty));
   RequestHook(NULL, "gml_Script_anon@700@gml_Object_objEvolvetrickies_Other_10", "IW trickies", TrickiesCheck, reinterpret_cast<PVOID *>(&trickiesCheck));
   RequestHook(NULL, "gml_Script_data_update_player_pos", "IW player_pos", DataUpdatePlayerPos, reinterpret_cast<PVOID *>(&dataUpdatePlayerPos));
+  RequestHook(NULL, "gml_Script_world_data_init", "IW world_data_init", WorldDataInit, reinterpret_cast<PVOID *>(&worldDataInit));
 
   RequestHook(NULL, "gml_Script_WaitForTween", "IW WaitForTween", WaitForTween, reinterpret_cast<PVOID *>(&waitForTween));
 
