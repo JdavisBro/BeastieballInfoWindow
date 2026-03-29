@@ -391,6 +391,8 @@ struct GachaResult {
   GachaResultItem item;
 };
 
+// MARK: Metamorph/Duplicates
+
 double GetBeastieDuplicates(const RValue &beastie)
 {
   double duplicates = floor((beastie["ba_r"].ToDouble() + 0.000001) * 6);
@@ -663,6 +665,8 @@ RValue CreateBeastie(const char *family, GachaResultBeastie &result)
 }
 
 std::vector<GachaResult> gacha_pull;
+
+// MARK: Gacha Scene
 
 const int gacha_scene_progress_start = -1;
 enum GachaSceneProgress {
@@ -1367,6 +1371,8 @@ void DoGachaPull(GachaType &gacha, int pull_count)
   gacha_scene_progress = gacha_scene_progress_start;
 }
 
+// MARK: UI
+
 int gacha_open = 0;
 
 void DrawTextPoses(std::vector<TextPos> &text_array, bool after_beasties)
@@ -1463,6 +1469,8 @@ void SetFont()
 {
   yytk->CallBuiltin("draw_set_font", {yytk->CallGameScript("gml_Script_font_get", {2})});
 }
+
+// MARK: Results UI
 
 void GachaResultsHandleInput(RValue &menu)
 {
@@ -1590,6 +1598,8 @@ void DrawGachaResultsMenu(RValue &current_menu)
     DoGachaPull(*active_gacha, 10);
 }
 
+// MARK: Rates UI
+
 double max_gacha_scroll = 1.0;
 
 void GachaRatesHandleInput(RValue &menu)
@@ -1714,6 +1724,8 @@ void OpenGachaRates()
   menu["selectX_anim"] = 0.0;
 }
 
+// MARK: Gacha UI
+
 void HandleInput(const RValue &menu)
 {
   GachaType &gacha = *active_gacha;
@@ -1836,6 +1848,8 @@ void DrawGachaMenu()
   DrawControls();
 }
 
+// MARK: ImGui Debug
+
 std::string editing_gacha = "amberstone";
 int editing_beastie = 0;
 int editing_text = 0;
@@ -1919,6 +1933,8 @@ void EditGachaMenu()
   }
 }
 
+// MARK: Menu Setup
+
 const char *menu_string = R"({
   "name": "Recruit", "open": 0,
   "selectX": 0, "selectY": 0,
@@ -1949,7 +1965,7 @@ void MenuSetup()
 std::map<std::string, int> jersey_value = {
   {"jersey", 1}, {"jersey2", 2}, {"jersey3", 3}, {"jersey4", 4}, {"jersey5", 5},
 };
-const int jersey_price = 160;
+const int jersey_price = 20;
 
 bool other_setup_done = false;
 
