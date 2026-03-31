@@ -125,6 +125,7 @@ const char *level_stumps[] = {
   R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_amberstone","world_x1" : -18001,"world_x2" : -16001,"world_y1" : 26394,"world_y2" : 28794})",
   R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_mythwood","world_x1" : -16001,"world_x2" : -14001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "woods"})",
   R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_chromasea","world_x1" : -14001,"world_x2" : -12001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "island"})",
+  R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_geocity","world_x1" : -12001,"world_x2" : -10001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "city"})",
 };
 
 PFUNC_YYGMLScript worldDataInit = nullptr;
@@ -181,6 +182,7 @@ struct BeastiePos {
   bool front_of_text = false;
   double rotation = 0.0;
   double alpha = 1.0;
+  double spr_index = 0.0;
 };
 
 struct SpritePos {
@@ -361,6 +363,41 @@ std::map<std::string, GachaType> gachas = {
       default_item_drops,
     },
     "gacha_chromasea",
+  }},
+  {"geocity", {
+    "Geo City",
+    {
+      {scentered"[ftBold][scale,1.2][#b09efc]GEO CITY", 0.15, 0.20, 1, 0xFFFFFF, true, true},
+      {"Scavengers", 0.17, 0.28, 1, 0xFFFFFF, true},
+      {"Trat", 0.7, 0.57, 1, 0xFFFFFF, true},
+      {scentered"[scale,0.125][sprBall,2][sprBall,2][sprBall,2][sprBall,2][sprBall,2]", 0.7, 0.62, 1, 0xFFFFFF, true, true},
+      {"Another Man's Treasure", 0.7, 0.645, 0.35, 0xFFFFFF, true},
+      {"Drop Rate Up!", 0.771, 0.53, 0.4, 0xFFFFFF, true},
+    },
+    {
+      {"bat", "menu", 0.50, 0.51},
+      {"rat", "good", 0.68, 0.58, 1.0, 1.0, false, 0.0, 1.0, 1},
+      {"swift", "menu", 0.10, 0.25, -1.0, 1.0},
+      {"olm", "menu", 0.05, 0.61, -1.0, 1.0, false, 30.0},
+      {"opossum", "good", 0.20, 0.80},
+      {"ibis", "menu", 0.94, 0.40},
+      {"nerd", "menu", 0.90, 0.80},
+      {"magpie", "menu", 0.44, 0.80, -1.0, 1.0},
+      {"snake", "menu", 0.27, 0.80, -1.0, 1.0},
+      {"gremlin", "menu", 0.60, 0.85},
+    },
+    {
+      {"sprBall", 2, 0.50, 0.50, 0.5, 0.5, 0, -1.5},
+      {"sprBall", 1, 0.50, 0.50, 0.5, 0.5},
+    },
+    { { 0.45, 0.9, 1, 1 }, { 0.8, 0.9, 2, 1 }, { 0.15, 0.9, 0, 1 } },
+    1,
+    {
+      { {"rat", 1.5}, {"nerd1"}, {"opossum"} },
+      { {"magpie1"}, {"snake"}, {"bat1"}, {"ibis"}, {"gremlin"}, {"swift"}, {"olm1"} },
+      default_item_drops,
+    },
+    "gacha_geocity",
   }},
   {"starter", {
     "Starters",
@@ -1460,10 +1497,11 @@ void DrawBeastieLayout(std::vector<BeastiePos> &beastie_layout, bool after_text)
   {
     if (beastie.front_of_text != after_text) continue;
     RValue species = yytk->CallBuiltin("ds_map_find_value", {char_dic, beastie.species});
+    RValue beastie_struct = beastie.spr_index ? RValue(std::map<std::string, RValue>{{"specie", beastie.species}, {"spr_index", beastie.spr_index}, {"scale", 1.0}}) : species;
     yytk->CallGameScript("gml_Script_draw_monster_menu", {
-      species,
+      beastie_struct,
       yytk->CallGameScript("gml_Script_canvas_x", {beastie.x, beastie.y}), yytk->CallGameScript("gml_Script_canvas_y", {beastie.y}),
-      1.0, beastie.alpha, beastie.x_scale, beastie.y_scale, beastie.rotation, beastie.animation
+      1.0, beastie.alpha, beastie.x_scale, beastie.y_scale, beastie.rotation, beastie.animation, species,
       });
   }
 }
@@ -1860,6 +1898,9 @@ std::vector<std::string> GetVisibleGachas()
   }
   else if (level_palette == "island") {
     visible_gachas[0] = "chromasea";
+  }
+  else if (level_palette == "city") {
+    visible_gachas[0] = "geocity";
   }
   gacha_count = visible_gachas.size();
   return visible_gachas;
