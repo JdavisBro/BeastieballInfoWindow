@@ -840,8 +840,18 @@ Vec3 Vec3Interp(Vec3 from, Vec3 to, double x)
   return {Interp(from.x, to.x, x), Interp(from.y, to.y, x), Interp(from.z, to.z, x)};
 }
 
+double original_camera_clip_distance = -1;
+double original_camera_clip_start = -1;
+
 void SceneDestroy()
 {
+  RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
+  if (original_camera_clip_distance > 0)
+    Utils::InstanceSet(scene_manager, "camera_clip_distance", original_camera_clip_distance);
+  original_camera_clip_distance = -1;
+  if (original_camera_clip_start > 0)
+    Utils::InstanceSet(scene_manager, "camera_clip_start", original_camera_clip_start);
+  original_camera_clip_start = -1;
   RValue renderers = Utils::GlobalGet("GACHA_SCENE_RENDERERS");
   size_t gacha_pull_size = gacha_pull.size();
   for (size_t i = 0; i < gacha_pull_size; i++)
@@ -951,6 +961,14 @@ bool MySceneFrame()
   do_scene_render = true;
   switch (gacha_scene_progress) {
   case GACHA_SCENE_BEGIN: {
+    if (original_camera_clip_distance == -1) {
+      original_camera_clip_distance = Utils::InstanceGet(scene_manager, "camera_clip_distance").ToDouble();
+      Utils::InstanceSet(scene_manager, "camera_clip_distance", 0);
+    }
+    if (original_camera_clip_start == -1) {
+      original_camera_clip_start = Utils::InstanceGet(scene_manager, "camera_clip_start").ToDouble();
+      Utils::InstanceSet(scene_manager, "camera_clip_start", 0);
+    }
     SetCameraLocation(CameraInterp(camera_locations[0], camera_locations[1], min(2, tween_progress) / 2), scene_manager);
     CameraLocation cam_pos = CameraInterp(camera_locations[0], camera_locations[1], 0.5);
     Vec3 start_pos = {cam_pos.x, cam_pos.y, cam_pos.z - 300};
