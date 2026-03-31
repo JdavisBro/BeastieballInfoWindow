@@ -126,6 +126,7 @@ const char *level_stumps[] = {
   R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_mythwood","world_x1" : -16001,"world_x2" : -14001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "woods"})",
   R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_chromasea","world_x1" : -14001,"world_x2" : -12001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "island"})",
   R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_geocity","world_x1" : -12001,"world_x2" : -10001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "city"})",
+  R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_altoalps","world_x1" : -10001,"world_x2" : -8001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "mountain"})",
 };
 
 PFUNC_YYGMLScript worldDataInit = nullptr;
@@ -375,7 +376,7 @@ std::map<std::string, GachaType> gachas = {
       {"Drop Rate Up!", 0.771, 0.53, 0.4, 0xFFFFFF, true},
     },
     {
-      {"bat", "menu", 0.50, 0.51},
+      {"bat", "menu", 0.46, 0.51},
       {"rat", "good", 0.68, 0.58, 1.0, 1.0, false, 0.0, 1.0, 1},
       {"swift", "menu", 0.10, 0.25, -1.0, 1.0},
       {"olm", "menu", 0.05, 0.61, -1.0, 1.0, false, 30.0},
@@ -387,8 +388,8 @@ std::map<std::string, GachaType> gachas = {
       {"gremlin", "menu", 0.60, 0.85},
     },
     {
-      {"sprBall", 2, 0.50, 0.50, 0.5, 0.5, 0, -1.5},
-      {"sprBall", 1, 0.50, 0.50, 0.5, 0.5},
+      {"sprBall", 2, 0.78, 0.32, 0.5, 0.5, 0, -1.5},
+      {"sprBall", 1, 0.78, 0.32, 0.5, 0.5},
     },
     { { 0.45, 0.9, 1, 1 }, { 0.8, 0.9, 2, 1 }, { 0.15, 0.9, 0, 1 } },
     1,
@@ -398,6 +399,46 @@ std::map<std::string, GachaType> gachas = {
       default_item_drops,
     },
     "gacha_geocity",
+  }},
+  {"altoalps", {
+    "Alto Alps",
+    {
+      {scentered"[ftBold]Utop the [#e1f9fc]Alto Alps", 0.25, 0.2, 1, 0xFFFFFF, true, true},
+      {scentered"[ftBold]From the [#b09efc]DISTANT PAST", 0.75, 0.2, 1, 0xFFFFFF, true, true},
+      {"Shloom", 0.65, 0.57, 1, 0xFFFFFF, true},
+      {scentered"[scale,0.125][sprBall,2][sprBall,2][sprBall,2][sprBall,2][sprBall,2]", 0.65, 0.62, 1, 0xFFFFFF, true, true},
+      {"God of Sports", 0.65, 0.645, 0.35, 0xFFFFFF, true},
+      {"Drop Rate Up!", 0.721, 0.53, 0.4, 0xFFFFFF, true},
+      {"Yamyth", 0.3, 0.57, 1, 0xFFFFFF, true},
+      {scentered"[scale,0.125][sprBall,2][sprBall,2][sprBall,2][sprBall,2][sprBall,2]", 0.3, 0.62, 1, 0xFFFFFF, true, true},
+      {"The Moutain's Light", 0.3, 0.645, 0.35, 0xFFFFFF, true},
+      {"Drop Rate Up!", 0.371, 0.53, 0.4, 0xFFFFFF, true},
+    },
+    {
+      {"shroommon", "menu", 0.60, 0.63, -0.7, 0.7, true},
+      {"bestiemon", "menu", 0.91, 0.48, -0.7, 0.7},
+      {"platypus", "menu", 0.70, 0.95, -0.7, 0.7},
+      {"cheerleadermon", "menu", 0.87, 0.71, -0.7, 0.7},
+      {"magpiemon", "menu", 0.90, 1.00, -0.7, 0.7},
+      {"rainbowmon", "menu", 0.73, 0.98, -0.7, 0.7},
+      {"yeti", "menu", 0.36, 0.63, 0.7, 0.7, true},
+      {"beluga", "menu", 0.14, 0.50, 0.7, 0.7},
+      {"kettle", "menu", 0.24, 0.97, 0.7, 0.7},
+      {"spirit", "menu", -0.02, 0.80, 0.7, 0.7},
+      {"snowspirit", "menu", 0.10, 0.80, 0.7, 0.7},
+      {"wizard", "spike", 0.07, 0.96, 0.7, 0.7},
+    },
+    {
+      {"sprBall", 2, 0.585, 0.405, 0.37, 0.37, 0, -0.25},
+    },
+    { { 0.5, 0.75, 0, 1 }, { 0.5, 0.85, 0, 2 }, { 0.5, 0.95, 0, 3 } },
+    0,
+    {
+      { {"shroommon", 2}, {"bestiemon"}, {"yeti", 2}, {"beluga"} },
+      { {"wizard"}, {"kettle1"}, {"spirit1"}, {"platypus"}, {"cheerleadermon"}, {"rainbowmon"}, {"magpiemon"} },
+      default_item_drops,
+    },
+    "gacha_altoalps",
   }},
   {"starter", {
     "Starters",
@@ -1901,6 +1942,9 @@ std::vector<std::string> GetVisibleGachas()
   }
   else if (level_palette == "city") {
     visible_gachas[0] = "geocity";
+  }
+  else if (level_palette == "mountain") {
+    visible_gachas[0] = "altoalps";
   }
   gacha_count = visible_gachas.size();
   return visible_gachas;
