@@ -124,6 +124,7 @@ RValue &EvAdjust(CInstance *Self, CInstance *Other, RValue &ReturnValue, int num
 const char *level_stumps[] = {
   R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_amberstone","world_x1" : -18001,"world_x2" : -16001,"world_y1" : 26394,"world_y2" : 28794})",
   R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_mythwood","world_x1" : -16001,"world_x2" : -14001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "woods"})",
+  R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_chromasea","world_x1" : -14001,"world_x2" : -12001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "island"})",
 };
 
 PFUNC_YYGMLScript worldDataInit = nullptr;
@@ -134,7 +135,9 @@ RValue &WorldDataInit(CInstance *Self, CInstance *Other, RValue &ReturnValue, in
   RValue stumps_array = world_data["level_stumps_array"];
   for (const char *level_stump : level_stumps) {
     RValue level = yytk->CallGameScript("gml_Script_ElephantFromJSON", {yytk->CallBuiltin("json_parse", {level_stump})});
-    yytk->CallBuiltin("array_push", {stumps_array, level});
+    if (Utils::CallStructMethod(world_data, "find_stump", {level["name"]}).IsUndefined()) {
+      yytk->CallBuiltin("array_push", {stumps_array, level});
+    }
   }
   Utils::CallStructMethod(world_data, "quadtree_reset", {});
   return ReturnValue;
@@ -268,6 +271,7 @@ std::map<std::string, GachaType> gachas = {
       {"kangaroo", "menu", 0.9, 0.93, -1, 1, true},
       {"bestie", "good", 0.55, 0.98, -1.1, 1.1, true},
       {"dragonfly", "volley", 0.89, 0.3, 1, 1, true},
+      {"disruptor", "volley", 0.66, 1.04, -1, 1, true, -10},
     },
     {
       {"sprBall", 2, 0.39, 0.2, 0.7, 0.7, 0, 1.5},
@@ -294,11 +298,12 @@ std::map<std::string, GachaType> gachas = {
     },
     {
       {"tricky", "menu", 0.68, 0.38, 0.8, 0.8, false, 95},
-      {"shy", "menu", 0.93, 0.44, 0.8, 0.8, false, 30},
-      {"okapi", "spike", 0.57, 0.83, 0.8, 0.8},
+      {"shy", "menu", 1.02, 0.21, 0.8, 0.8, false, 10},
       {"football", "menu", 0.23, 0.50, -0.8, 0.8, false, -18},
       {"ghost", "ready", 0.14, 0.83, -0.8, 0.8},
       {"clown", "menu", 0.94, 0.18, 0.8, 0.8, false, 115},
+      {"okapi", "spike", 0.57, 0.83, 0.8, 0.8},
+      {"fox", "menu", 0.92, 0.57, 0.8, 0.8, false, -10},
       {"mantis", "menu", 0.70, 0.85, 0.8, 0.8},
       {"millipede", "menu", 0.91, 0.81, 0.8, 0.8, false, 10},
       {"monkey", "menu", 0.08, 0.43, -0.8, 0.8, false, -10},
@@ -317,6 +322,45 @@ std::map<std::string, GachaType> gachas = {
       default_item_drops,
     },
     "gacha_mythwood",
+  }},
+  {"chromasea", {
+    "Chroma Sea",
+    {
+      {"On and under the waves", 0.36, 0.18, 1, 0xFFFFFF, true},
+      {scentered"[ftBold][scale,1.2]of the [#f7df91]CHROMA SEA", 0.46, 0.27, 1, 0xFFFFFF, true, true},
+      {"Broslidon", 0.3, 0.57, 1, 0xFFFFFF, true},
+      {scentered"[scale,0.125][sprBall,2][sprBall,2][sprBall,2][sprBall,2][sprBall,2]", 0.3, 0.62, 1, 0xFFFFFF, true, true},
+      {"King of the Sea", 0.3, 0.645, 0.35, 0xFFFFFF, true},
+      {"Drop Rate Up!", 0.371, 0.53, 0.4, 0xFFFFFF, true},
+    },
+    {
+      {"seal", "spike", 0.23, 0.86, -0.8, 0.8, true},
+      {"psychic", "good", 0.09, 0.85, -0.8, 0.8, true},
+      {"horseshoe", "fall", 0.64, 0.85, 0.8, 0.8},
+      {"mudskipper", "menu", 0.32, 0.85, -0.8, 0.8, true},
+      {"jellyfish", "good", 0.90, 0.40, 0.8, 0.8},
+      {"seabird", "ready", 0.04, 0.41, -0.8, 0.8, false, -20},
+      {"turtle", "ready", 0.85, 0.85, 0.8, 0.8},
+      {"shark", "ready", 0.75, 0.60, 0.8, 0.8, false, 30},
+      {"rainbow", "good", 0.15, 0.54, -0.8, 0.8, false, -40},
+      {"clam", "spike", 0.58, 0.59, 0.8, 0.8},
+      {"crab", "menu", 0.96, 0.50, 0.8, 0.8, false, -10},
+      {"croc", "menu", -0.02, 0.67, -0.8, 0.8, false, 20},
+    },
+    {
+      {"sprBall", 2, 0.49, 0.78, 0.5, 0.5, 0, -1.5},
+      {"sprBall", 1, 0.49, 0.78, 0.5, 0.5},
+      {"sprBall", 2, 0.47, 0.35, 0.5, 0.5, 0, -1.5},
+      {"sprBall", 1, 0.47, 0.35, 0.5, 0.5},
+    },
+    { { 0.45, 0.9, 1, 1 }, { 0.8, 0.9, 2, 1 }, { 0.15, 0.9, 0, 1 } },
+    1,
+    {
+      { {"seal1", 3}, {"shark1"}, {"horseshoe"}, {"psychic"} },
+      { {"seabird1"}, {"jellyfish1"}, {"rainbow"}, {"crab"}, {"mudskipper"}, {"croc"}, {"clam"}, {"turtle1"} },
+      default_item_drops,
+    },
+    "gacha_chromasea",
   }},
   {"starter", {
     "Starters",
@@ -1795,6 +1839,9 @@ std::vector<std::string> GetVisibleGachas()
   }
   else if (level_palette == "woods") {
     visible_gachas[0] = "mythwood";
+  }
+  else if (level_palette == "island") {
+    visible_gachas[0] = "chromasea";
   }
   gacha_count = visible_gachas.size();
   return visible_gachas;
