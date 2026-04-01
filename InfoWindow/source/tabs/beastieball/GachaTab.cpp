@@ -122,11 +122,11 @@ RValue &EvAdjust(CInstance *Self, CInstance *Other, RValue &ReturnValue, int num
 }
 
 const char *level_stumps[] = {
-  R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_amberstone","world_x1" : -18001,"world_x2" : -16001,"world_y1" : 26394,"world_y2" : 28794})",
-  R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_mythwood","world_x1" : -16001,"world_x2" : -14001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "woods"})",
-  R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_chromasea","world_x1" : -14001,"world_x2" : -12001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "island"})",
-  R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_geocity","world_x1" : -12001,"world_x2" : -10001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "city"})",
-  R"({"_" : "class_level_stump","color" : 5282300,"encounters" : [],"icons_array" : [],"portals_array" : [],"spawn_name" : ["default"],"world_layer" : 1,"name" : "gacha_altoalps","world_x1" : -10001,"world_x2" : -8001,"world_y1" : 26391,"world_y2" : 28791,"palette_name" : "mountain"})",
+  R"({"_":"class_level_stump","color":5282300,"encounters":[],"icons_array":[],"portals_array":[],"spawn_name":["default"],"world_layer":1,"name":"gacha_amberstone","world_x1":-18001,"world_x2":-16001,"world_y1":26394,"world_y2":28794})",
+  R"({"_":"class_level_stump","color":5282300,"encounters":[],"icons_array":[],"portals_array":[],"spawn_name":["default"],"world_layer":1,"name":"gacha_mythwood","world_x1":-16001,"world_x2":-14001,"world_y1":26391,"world_y2":28791,"palette_name":"woods"})",
+  R"({"_":"class_level_stump","color":5282300,"encounters":[],"icons_array":[],"portals_array":[],"spawn_name":["default"],"world_layer":1,"name":"gacha_chromasea","world_x1":-14001,"world_x2":-12001,"world_y1":26391,"world_y2":28791,"palette_name":"island"})",
+  R"({"_":"class_level_stump","color":5282300,"encounters":[],"icons_array":[],"portals_array":[],"spawn_name":["default"],"world_layer":1,"name":"gacha_geocity","world_x1":-12001,"world_x2":-10001,"world_y1":26391,"world_y2":28791,"palette_name":"city"})",
+  R"({"_":"class_level_stump","color":5282300,"encounters":[],"icons_array":[],"portals_array":[],"spawn_name":["default"],"world_layer":1,"name":"gacha_altoalps","world_x1":-10001,"world_x2":-8001,"world_y1":26391,"world_y2":28791,"palette_name":"mountain"})",
 };
 
 PFUNC_YYGMLScript worldDataInit = nullptr;
