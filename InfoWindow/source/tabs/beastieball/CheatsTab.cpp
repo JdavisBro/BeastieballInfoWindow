@@ -280,6 +280,21 @@ void DoDebugChildren(RValue &thing)
     // is button
     bool pressed = false;
     std::vector<RValue> keys = thing["keys"].ToVector();
+    size_t key_count = keys.size();
+    if (key_count > 0 && key_count < 3) {
+      bool has_ctrl = false;
+      bool has_shift = false;
+      bool use_alt = false;
+      for (RValue &key : keys) {
+        int key_i = key.ToInt32();
+        if (key_i == 17) has_ctrl = true;
+        if (key_i == 16) has_shift = true;
+        if (key_i == 77) use_alt = true; // ctrl + shift + m is already used
+      }
+      if (!has_shift) yytk->CallBuiltin("array_insert", {thing["keys"], has_ctrl ? 1 : 0, use_alt ? 18 : 16});
+      if (!has_ctrl) yytk->CallBuiltin("array_insert", {thing["keys"], 0, 17});
+      keys = thing["keys"].ToVector();
+    }
     for (RValue &key : keys)
     {
       if (yytk->CallBuiltin("keyboard_check_pressed", {key}).ToBoolean())
