@@ -24,7 +24,7 @@ jobs:
 
     strategy:
       matrix:
-        branch: [main]
+        branch: [main, gacha]
 
     steps:
       - name: Checkout Repo
@@ -50,7 +50,7 @@ jobs:
         uses: actions/upload-artifact@v4
         with:
           name: BeastieballInfoWindow ${{ matrix.branch }}
-          path: .\x64\Release\BeastieballInfoWindow*.dll
+          path: .\x64\Release\Beastieball*.dll
   upload:
     permissions: write-all
     needs: [build]
