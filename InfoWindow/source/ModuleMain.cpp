@@ -47,8 +47,10 @@ void DoHooks()
 	ConsoleTab::ConsoleHooks();
 	if (is_beastieball)
 	{
+		#ifdef DO_INFOWINDOW
 		AiTab::AiHooks();
 		CheatsTab::CheatsHooks();
+		#endif
 		GachaTab::GachaHooks();
 	}
 	// make hooks
@@ -147,7 +149,7 @@ void CodeCallback(FWCodeEvent &Event)
 	if (!Event.CalledOriginal())
 		Event.Call(Self, Other, Code, ArgCount, Arg);
 
-	if (name.starts_with("gml_Object_objEvolveshroom_Other_11"))
+	if (name.starts_with("gml_Object_objEvolveshroom_Other_"))
 		GachaTab::specie_in_party_must_metamorph = false;
 
 	if (name == "gml_Object_objGame_Draw_64")
@@ -203,10 +205,7 @@ void CodeCallback(FWCodeEvent &Event)
 		BeastieballCheck();
 		DoHooks();
 	}
-	#ifndef DO_INFOWINDOW
-	return;
-	#endif
-
+	#ifdef DO_INFOWINDOW
 	ImGuiID dockspace;
 	if (!ImguiFrameSetup(dockspace))
 	{
@@ -232,6 +231,7 @@ void CodeCallback(FWCodeEvent &Event)
 		if (!settings.IsUndefined())
 			yytk->CallBuiltin("game_set_speed", {settings["framerate"], 0});
 	}
+	#endif
 }
 
 EXPORTED AurieStatus ModuleInitialize(

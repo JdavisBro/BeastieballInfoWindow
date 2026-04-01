@@ -800,8 +800,8 @@ enum GachaSceneProgress {
   GACHA_SCENE_POST = 10,
   GACHA_SCENE_DESTROY = 11,
 };
-int gacha_scene_progress = gacha_scene_progress_start;
-int gacha_scene_drawing = gacha_scene_progress_start;
+int gacha_scene_progress = gacha_scene_progress_start - 1;
+int gacha_scene_drawing = gacha_scene_progress_start - 1;
 
 struct CameraLocation {
   double x;
@@ -940,8 +940,8 @@ void SceneDestroy()
     if (gacha_pull[i].type == GACHA_BEASTIE)
       Utils::CallStructMethod(renderers[i], "cleanup", {});
   yytk->CallBuiltin("array_resize", {renderers, 0});
-  gacha_scene_progress = gacha_scene_progress_start;
-  gacha_scene_drawing = gacha_scene_progress_start;
+  gacha_scene_progress = gacha_scene_progress_start - 1;
+  gacha_scene_drawing = gacha_scene_progress_start - 1;
   camera_locations.clear();
   gacha_pull.clear();
   beastie_drawers.clear();
@@ -1421,6 +1421,8 @@ RValue &WaitForTween(CInstance *Self, CInstance *Other, RValue &ReturnValue, int
 
 void DoGachaPull(GachaType &gacha, int pull_count)
 {
+  if (gacha_scene_progress >= gacha_scene_progress_start && gacha_scene_progress < GACHA_SCENE_POST)
+    return;
   if (!yytk->CallGameScript("gml_Script_item_has", {"jersey", pull_count}).ToBoolean())
     return;
   yytk->CallGameScript("gml_Script_item_delete", {"jersey", pull_count});
