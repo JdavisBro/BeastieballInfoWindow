@@ -784,6 +784,7 @@ RValue CreateBeastie(const char *family, GachaResultBeastie &result)
   for (RValue &pid : registry_keys)
     if (IsBeastieMatch(family, registry[pid.ToString()], char_dic))
       return EnsureBeastieStats(registry[pid.ToString()], family, species, result);
+  double party_lowest_level = yytk->CallGameScript("gml_Script_party_lowest_level", {}).ToDouble();
   RValue beastie = Utils::CallStructMethod(species, "generate", {5, 1});
   yytk->CallGameScript("gml_Script_char_new_register", {beastie, 1});
   return EnsureBeastieStats(beastie, family, char_dic, result, 0);
