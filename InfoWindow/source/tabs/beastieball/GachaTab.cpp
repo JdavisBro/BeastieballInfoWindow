@@ -729,6 +729,9 @@ RValue &BeastieEncounterGenerate(CInstance *Self, CInstance *Other, RValue &Retu
 {
   is_encounter = true;
   beastieEncounterGenerate(Self, Other, ReturnValue, numArgs, Args);
+  if (Args[0]->ToString() == "starter")
+    for (const char * type : coaching_types)
+      ReturnValue[type] = 0.0;
   is_encounter = false;
   return ReturnValue;
 }
