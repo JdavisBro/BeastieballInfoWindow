@@ -403,7 +403,7 @@ std::map<std::string, GachaType> gachas = {
   {"altoalps", {
     "Alto Alps",
     {
-      {scentered"[ftBold]Utop the [#e1f9fc]Alto Alps", 0.25, 0.2, 1, 0xFFFFFF, true, true},
+      {scentered"[ftBold]Atop the [#e1f9fc]Alto Alps", 0.25, 0.2, 1, 0xFFFFFF, true, true},
       {scentered"[ftBold]From the [#b09efc]DISTANT PAST", 0.75, 0.2, 1, 0xFFFFFF, true, true},
       {"Shloom", 0.65, 0.57, 1, 0xFFFFFF, true},
       {scentered"[scale,0.125][sprBall,2][sprBall,2][sprBall,2][sprBall,2][sprBall,2]", 0.65, 0.62, 1, 0xFFFFFF, true, true},
