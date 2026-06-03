@@ -159,6 +159,8 @@ bool DoAutoSave(RValue &game)
 void MatchTab(bool *open)
 {
   RValue game = Utils::GlobalGet("GAME_ACTIVE");
+  if (!game.ToBoolean())
+    states.clear();
   bool can_save = DoAutoSave(game);
   if (!ImGui::Begin("Match", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
@@ -169,7 +171,6 @@ void MatchTab(bool *open)
   {
     ImGui::Text("No Active Match");
     OtherSettings();
-    states.clear();
   }
   else
     DoGame(game, can_save);
