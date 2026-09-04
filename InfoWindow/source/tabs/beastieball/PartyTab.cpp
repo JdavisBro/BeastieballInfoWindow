@@ -437,10 +437,10 @@ void NewBeastie(RValue &party)
   size_t beastie_count = char_dic_values.size();
   std::map<int, RValue> beastie_map;
   for (RValue beastie : char_dic_values)
-    beastie_map[beastie["number"].ToInt32()] = beastie;
+    beastie_map[beastie["order"].ToInt32()] = beastie;
   if (ImGui::BeginCombo("Species", BeastieSpeciesToString(beastie_template).c_str()))
   {
-    for (size_t i = 1; i <= beastie_count; i++)
+    for (size_t i = 0; i < beastie_count; i++)
     {
       RValue beastie = beastie_map[(int)i];
       std::string beastie_id = beastie["id"].ToString();
