@@ -161,60 +161,90 @@ std::string RValueToString(RValue &value)
   return value.ToString();
 }
 
-bool setter_bool = false;
-double setter_double = 0;
-std::string setter_string = "";
+const char * RVALUE_TYPE_NAMES[] = {
+  "Number", // VALUE_REAL
+  "String", // VALUE_STRING
+  "Array", // VALUE_ARRAY
+  "Ptr", // VALUE_PTR
+  "Vec3", // VALUE_VEC3
+  "Undefined", // VALUE_UNDEFINED
+  "Object", // VALUE_OBJECT
+  "Number", // VALUE_INT32
+  "Vec4", // VALUE_VEC4
+  "Vec44", // VALUE_VEC44
+  "Number", // VALUE_INT64
+  "Accessor", // VALUE_ACCESSOR
+  "Null", // VALUE_NULL
+  "Boolean", // VALUE_BOOL
+  "Iterator", // VALUE_ITERATOR
+  "Ref", // VALUE_REF
+};
+
+RValue *setter_value = (RValue *)malloc(sizeof(RValue));
+std::string setter_ref_string = "";
+
+double RValueToDoubleSafe(const RValue &value)
+{
+  if (value.m_Kind == VALUE_STRING) {
+    const char *str = value.ToCString();
+    bool decimal = false;
+    bool anydigit = false;
+    int start = str[0] == '-' ? 1 : 0;
+    for (int i=start; str[i] != '\0'; i++) {
+      char chr = str[i];
+      if (i > start && chr == '.') {
+        if (decimal) return 0.0;
+        decimal = true;
+      }
+      else if (std::isdigit(chr)) anydigit = true;
+      else return 0.0;
+    }
+    if (!anydigit) return 0.0;
+  }
+  return value.ToDouble();
+}
 
 RValue ValueSetter(RValue &name, RValue &value, bool just_changed)
 {
+  if (just_changed)
+    *setter_value = value;
   ImGui::Text(std::format("{} = {}", name.ToString(), RValueToString(value)).c_str());
-  RValue return_value;
-  if (ImGui::Button("To Bool"))
-    return_value = RValue(value.ToBoolean());
-  ImGui::SameLine();
-  if (ImGui::Button("To Number"))
-    return_value = RValue(value.ToDouble());
-  ImGui::SameLine();
-  if (ImGui::Button("To String"))
-    return_value = RValue(value.ToString());
-  if (!return_value.IsUndefined()) {
-    just_changed = true;
-    value = return_value;
+  if (ImGui::BeginCombo("Type", RVALUE_TYPE_NAMES[setter_value->m_Kind <= VALUE_REF ? setter_value->m_Kind : VALUE_UNDEFINED])) {
+    if (ImGui::Selectable("Boolean")) *setter_value = RValue(setter_value->ToBoolean());
+    if (ImGui::Selectable("Number")) *setter_value = RValue(RValueToDoubleSafe(*setter_value));
+    if (ImGui::Selectable("String")) *setter_value = RValue(setter_value->ToString());
+    if (ImGui::Selectable("Ref")) *setter_value = yytk->CallBuiltin("asset_get_index", {yytk->CallBuiltin("sprite_get_name", {0.0})});
+    ImGui::EndCombo();
   }
-  switch (value.m_Kind)
+  switch (setter_value->m_Kind)
   {
-  case VALUE_BOOL:
-  {
-    if (just_changed)
-      setter_bool = value.ToBoolean();
-    ImGui::Text("type: bool");
-    ImGui::Checkbox("Value", &setter_bool);
-    if (setter_bool != value.ToBoolean())
-      return RValue(setter_bool);
+  case VALUE_BOOL: {
+    bool setter_bool = setter_value->ToBoolean();
+    if (ImGui::Checkbox("Value", &setter_bool)) *setter_value = setter_bool;
     break;
   }
   case VALUE_INT32:
   case VALUE_INT64:
-  case VALUE_REAL:
-    if (just_changed)
-      setter_double = value.ToDouble();
-    ImGui::Text("type: number (double / int32 / int64)");
-    ImGui::InputDouble("##DoubleInput", &setter_double, 0.0, 0.0, "%f");
-    ImGui::SameLine();
-    if (ImGui::Button("Set"))
-      return RValue(setter_double);
-    break;
-  case VALUE_STRING:
-    if (just_changed)
-      setter_string = value.ToString();
-    ImGui::Text("type: string");
-    ImGui::InputTextMultiline("##TextInput", &setter_string);
-    ImGui::SameLine();
-    if (ImGui::Button("Set"))
-      return RValue(setter_string);
+  case VALUE_REAL: {
+    double setter_double = setter_value->ToDouble();
+    if (ImGui::InputDouble("##DoubleInput", &setter_double, 0.0, 0.0, "%f")) *setter_value = setter_double;
     break;
   }
-  return return_value;
+  case VALUE_STRING: {
+    std::string setter_string = setter_value->ToString();
+    if (ImGui::InputTextMultiline("##TextInput", &setter_string)) *setter_value = RValue(setter_string);
+    break;
+  }
+  case VALUE_REF: {
+    ImGui::InputText("##RefInput", &setter_ref_string);
+    RValue asset = yytk->CallBuiltin("asset_get_index", {RValue(setter_ref_string)});
+    if (asset.ToBoolean()) *setter_value = asset;
+    ImGui::Text(setter_value->ToString().c_str());
+    break;
+  }
+  }
+  ImGui::SameLine();
+  return ImGui::Button("Set") ? *setter_value : RValue();
 }
 
 const int NONE_SELECTED = -2;
