@@ -42,6 +42,7 @@ enum StorageType : int32_t
   STORAGE_ARRAY = 2,
   STORAGE_DS_MAP = 3,
   STORAGE_DS_LIST = 4,
+  STORAGE_OBJECT_LIST = 5,
 };
 
 // there are more but these are the ones i found in beastieball easily.
@@ -107,8 +108,9 @@ StorageType GetStorageType(RValue &object)
 
 RValue GetIndex(int i, RValue &parent, RValue &name, StorageType type)
 {
-  if (parent.IsUndefined())
+  switch (type)
   {
+  case STORAGE_OBJECT_LIST: {
     if (i == -1)
     {
       CInstance *global = nullptr;
@@ -117,8 +119,6 @@ RValue GetIndex(int i, RValue &parent, RValue &name, StorageType type)
     }
     return yytk->CallBuiltin("instance_find", {-3, i});
   }
-  switch (type)
-  {
   case STORAGE_ARRAY:
     return parent[i];
   case STORAGE_STRUCT:
@@ -217,7 +217,7 @@ RValue ValueSetter(RValue &name, RValue &value, bool just_changed)
   return return_value;
 }
 
-#define NONE_SELECTED -2
+const int NONE_SELECTED = -2;
 
 struct Pane {
   int selection = NONE_SELECTED;
@@ -406,6 +406,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     break;
   case STORAGE_ARRAY:
   case STORAGE_DS_LIST:
+  case STORAGE_OBJECT_LIST:
   case STORAGE_UNKNOWN:
     use_names = false;
     break;
@@ -416,7 +417,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   RValue selected_value;
   ImGui::InputText("Search", &pane.search);
   ImGui::SameLine();
-  if (object.IsUndefined())
+  if (type == STORAGE_OBJECT_LIST)
     CreateObject();
   else
     NewValue(type, object);
@@ -523,7 +524,7 @@ void ObjectTab(bool *open)
 
   RValue builtins_array = MakeBuiltinList();
   RValue undef;
-  MakePane(0, undef, GetObjectName, instance_count, -1, STORAGE_UNKNOWN, builtins_array);
+  MakePane(0, undef, GetObjectName, instance_count, -1, STORAGE_OBJECT_LIST, builtins_array);
 
   if (!options_drawn)
   {
