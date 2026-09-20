@@ -29,6 +29,7 @@ void Undo(const RValue &game_active, int found_ai)
     yytk->CallGameScript("gml_Script_board_snapshot_load", {last_ai_snapshot});
     Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", RValue());
   }
+  done_round = -1;
 }
 
 int FindAi(const RValue &game_active, bool always_return_ai)

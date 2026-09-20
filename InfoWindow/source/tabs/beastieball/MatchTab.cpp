@@ -173,10 +173,10 @@ bool DoAutoSave(RValue &game)
   if (!game.ToBoolean())
     return false;
   int round = Utils::InstanceGet(game, "round_count").ToInt32();
-  bool scene_playing = Utils::GlobalGet("SCENE_PLAYING").ToBoolean();
+  bool scene_queued = yytk->CallGameScript("gml_Script_SCENE_QUEUED", {}).ToBoolean();
   int menu_input_freeze = Utils::InstanceGet(game, "menu_input_freeze").ToInt32();
   int selection_mode = Utils::InstanceGet(game, "selection_mode").ToInt32();
-  bool can_save = !scene_playing && menu_input_freeze == 0 && selection_mode == 0;
+  bool can_save = !scene_queued && menu_input_freeze == 0 && selection_mode == 0;
   if (can_save && auto_save_enabled && !states.contains(round))
     states[round] = SaveState(game);
   return can_save;
