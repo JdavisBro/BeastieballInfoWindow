@@ -79,8 +79,6 @@ GameplayState SaveState(RValue &game)
   return state;
 }
 
-bool auto_create_ai_after_load = true;
-
 void LoadState(RValue &game, GameplayState &state)
 {
   if (Utils::InstanceGet(game, "game_music_ended").ToBoolean()) {
@@ -125,8 +123,6 @@ void LoadState(RValue &game, GameplayState &state)
     Utils::GlobalGet("menu_tab_open").m_Object == Utils::InstanceGet(Utils::GetObjectInstance("objGame"), "mn_results").m_Object) {
     yytk->CallGameScript("gml_Script_menu_level_out", {});
   }
-  // if (auto_create_ai_after_load)
-  //   AiTab::MakeAi(game); // from AiTab
 }
 
 int selected = 0;
@@ -135,8 +131,6 @@ bool auto_save_enabled = true;
 void OtherSettings()
 {
   ImGui::Checkbox("Auto Save on New Rounds", &auto_save_enabled);
-  ImGui::SameLine();
-  ImGui::Checkbox("Create AI after load", &auto_create_ai_after_load);
 }
 
 void DoGame(RValue &game, bool can_save)
@@ -211,7 +205,6 @@ void MatchTab(bool *open)
 void Store()
 {
   Storage::Store("auto_save_enabled", &auto_save_enabled);
-  Storage::Store("auto_create_ai_after_load", &auto_create_ai_after_load);
 }
 
 }
