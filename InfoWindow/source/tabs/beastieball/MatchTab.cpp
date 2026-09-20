@@ -83,6 +83,10 @@ bool auto_create_ai_after_load = true;
 
 void LoadState(RValue &game, GameplayState &state)
 {
+  if (Utils::InstanceGet(game, "game_music_ended").ToBoolean()) {
+    yytk->CallGameScript("gml_Script_sport_play_music", {});
+  }
+
   AiTab::Undo(game, AiTab::FindAi(game, true));
   for (auto data : state.normal_values)
   {
@@ -95,6 +99,32 @@ void LoadState(RValue &game, GameplayState &state)
   }
   Utils::InstanceSet(game, "ai_choicegraph", RValue());
   Utils::InstanceSet(game, "ai_selecting", -1);
+
+  if (yytk->CallGameScript("gml_Script_SCENE_QUEUED", {}).ToBoolean()) {
+    yytk->CallGameScript("gml_Script_SceneClear", {});
+    Utils::InstanceSet(game, "gameplay_camera", true);
+    RValue objChar = yytk->CallBuiltin("asset_get_index", {"objChar"});
+    int objChar_count = yytk->CallBuiltin("instance_number", {objChar}).ToInt32();
+    for (int i=0; i < objChar_count; i++) {
+      RValue obj = yytk->CallBuiltin("instance_find", {objChar, i});
+      Utils::InstanceSet(obj, "ai_freeze", false);
+      Utils::InstanceSet(obj, "status_freeze", -1);
+      Utils::InstanceSet(obj, "hp_freeze", false);
+      Utils::InstanceSet(obj, "move_freeze", false);
+    }
+    RValue ball_data = Utils::InstanceGet(game, "ball_data");
+    RValue ball = Utils::GetObjectInstance("objBall");
+    Utils::InstanceSet(ball, "grid_x", ball_data["x"]);
+    Utils::InstanceSet(ball, "grid_y", ball_data["y"]);
+    Utils::InstanceSet(ball, "beastie", RValue());
+    Utils::InstanceSet(ball, "flying", 0.0);
+    Utils::InstanceSet(ball, "winner", false);
+    Utils::InstanceSet(ball, "move_freeze", false);
+  }
+  if (Utils::GlobalGet("menu_open").ToBoolean() &&
+    Utils::GlobalGet("menu_tab_open").m_Object == Utils::InstanceGet(Utils::GetObjectInstance("objGame"), "mn_results").m_Object) {
+    yytk->CallGameScript("gml_Script_menu_level_out", {});
+  }
   // if (auto_create_ai_after_load)
   //   AiTab::MakeAi(game); // from AiTab
 }
