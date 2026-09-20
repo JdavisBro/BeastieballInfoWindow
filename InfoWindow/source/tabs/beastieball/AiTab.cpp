@@ -65,19 +65,17 @@ int FindAi(const RValue &game_active, bool always_return_ai)
   return found_ai;
 }
 
-bool do_force_skipping = false;
-bool force_skipping = false;
+bool do_instant_ai_play = false;
+bool instant_ai_play = false;
+int prev_sport_speed = 0;
 
-void DoForceSkipping(const RValue &game_active)
+void InstantAiCheck(const RValue &game_active)
 {
-  RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
-  if (do_force_skipping && game_active.ToBoolean() && (Utils::InstanceGet(game_active, "board_replaying").ToBoolean() || Utils::InstanceGet(game_active, "ai_choicegraph").ToBoolean())) {
-    Utils::InstanceSet(scene_manager, "scene_skipping", true);
-    Utils::InstanceSet(scene_manager, "scene_skippable", true);
-    DbgPrint("Force Skipped");
+  if (!do_instant_ai_play || !game_active.ToBoolean() || !(Utils::InstanceGet(game_active, "board_replaying").ToBoolean() || Utils::InstanceGet(game_active, "ai_choicegraph").ToBoolean())) {
+    instant_ai_play = false;
+    RValue local_settings = Utils::GlobalGet("data")["LOCAL_SETTINGS"];
+    local_settings["sportspeed"] = prev_sport_speed;
   }
-  else
-    force_skipping = false;
 }
 
 void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
@@ -94,9 +92,11 @@ void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
   aitree["root_snapshot"] = snapshot;
   Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", snapshot);
   done_round = Utils::InstanceGet(game_active, "round_count").ToInt32();
-  if (do_force_skipping) {
-    force_skipping = true;
-    DoForceSkipping(game_active);
+  if (do_instant_ai_play && !instant_ai_play) {
+    instant_ai_play = true;
+    RValue local_settings = Utils::GlobalGet("data")["LOCAL_SETTINGS"];
+    prev_sport_speed = local_settings["sportspeed"].ToInt32();
+    local_settings["sportspeed"] = 5.0; // INSTANT
   }
 }
 
@@ -463,8 +463,8 @@ void AiTab(bool *open)
     AutoMakeAi(game_active);
   if (!game_active.ToBoolean())
       Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", RValue());
-  if (force_skipping)
-    DoForceSkipping(game_active);
+  if (instant_ai_play)
+    InstantAiCheck(game_active);
   if (!ImGui::Begin("AI Info", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
@@ -483,7 +483,7 @@ void AiTab(bool *open)
   ImGui::SameLine();
   ImGui::Checkbox("Auto Create AI", &auto_create_ai);
   ImGui::SameLine();
-  ImGui::Checkbox("Force Skip AI Turn", &do_force_skipping);
+  ImGui::Checkbox("Instant AI Turns", &do_instant_ai_play);
   DrawPreferTarget(game_active);
   CreateAiTree(game_active);
   DrawAiTree(game_active);
@@ -497,7 +497,7 @@ void Store()
   Storage::Store("draw_all", &draw_all);
   Storage::Store("draw_intermediary", &draw_intermediary);
   Storage::Store("draw_notpossible", &draw_notpossible);
-  Storage::Store("do_force_skipping", &do_force_skipping);
+  Storage::Store("do_instant_ai_play", &do_instant_ai_play);
 }
 
 }
