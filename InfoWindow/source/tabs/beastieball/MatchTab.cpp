@@ -100,6 +100,8 @@ void LoadState(RValue &game, GameplayState &state)
 
   if (yytk->CallGameScript("gml_Script_SCENE_QUEUED", {}).ToBoolean()) {
     yytk->CallGameScript("gml_Script_SceneClear", {});
+    RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
+    Utils::InstanceSet(scene_manager, "dialog_scribble", -1);
     Utils::InstanceSet(game, "gameplay_camera", true);
     RValue objChar = yytk->CallBuiltin("asset_get_index", {"objChar"});
     int objChar_count = yytk->CallBuiltin("instance_number", {objChar}).ToInt32();
