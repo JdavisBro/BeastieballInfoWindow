@@ -230,12 +230,25 @@ RValue &ButtonlistPressed(CInstance *Self, CInstance *Other, RValue &ReturnValue
   return ReturnValue;
 }
 
+PFUNC_YYGMLScript item_count = nullptr;
+RValue &ItemCount(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  // Fix debug balance tab crash
+  if (!yytk->CallGameScript("gml_Script_item_data", {*Args[0]}).ToBoolean()) {
+    ReturnValue = 0.0;
+    return ReturnValue;
+  }
+  item_count(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+
 void CheatsHooks()
 {
   RequestHook("gml_Script_triangulate@", "class_shape", "IW shapeTriangulate", ShapeTriangulate, reinterpret_cast<PVOID *>(&shapeTriangulateOriginal));
   RequestHook("gml_Script_build_baked_models@", "class_level", "IW build_baked_models", BuildBakedModels, reinterpret_cast<PVOID *>(&buildBakedModelsOriginal));
   RequestHook("gml_Script_AddTo@", "DotobjClassGroup", "IW groupaddto", GroupAddTo, reinterpret_cast<PVOID *>(&groupAddToOriginal));
   RequestHook(NULL, "gml_Script_buttonlist_pressed", "IW buttonlistpressed", ButtonlistPressed, reinterpret_cast<PVOID *>(&buttonlistPressedOriginal));
+  RequestHook(NULL, "gml_Script_item_count", "IW icount", ItemCount, reinterpret_cast<PVOID *>(&item_count));
 }
 
 const char *player_vars[] = {
