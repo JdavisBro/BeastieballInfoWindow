@@ -29,6 +29,7 @@ void Undo(const RValue &game_active, int found_ai)
     yytk->CallGameScript("gml_Script_board_snapshot_load", {last_ai_snapshot});
     Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", RValue());
   }
+  done_round = -1;
 }
 
 int FindAi(const RValue &game_active, bool always_return_ai)
@@ -65,6 +66,19 @@ int FindAi(const RValue &game_active, bool always_return_ai)
   return found_ai;
 }
 
+bool do_instant_ai_play = false;
+bool instant_ai_play = false;
+int prev_sport_speed = 0;
+
+void InstantAiCheck(const RValue &game_active)
+{
+  if (!do_instant_ai_play || !game_active.ToBoolean() || !(Utils::InstanceGet(game_active, "board_replaying").ToBoolean() || Utils::InstanceGet(game_active, "ai_choicegraph").ToBoolean())) {
+    instant_ai_play = false;
+    RValue local_settings = Utils::GlobalGet("data")["LOCAL_SETTINGS"];
+    local_settings["sportspeed"] = prev_sport_speed;
+  }
+}
+
 void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
 {
   Undo(game_active, found_ai);
@@ -79,6 +93,12 @@ void ActuallyMakeAi(const RValue &game_active, const int &found_ai)
   aitree["root_snapshot"] = snapshot;
   Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", snapshot);
   done_round = Utils::InstanceGet(game_active, "round_count").ToInt32();
+  if (do_instant_ai_play && !instant_ai_play) {
+    instant_ai_play = true;
+    RValue local_settings = Utils::GlobalGet("data")["LOCAL_SETTINGS"];
+    prev_sport_speed = local_settings["sportspeed"].ToInt32();
+    local_settings["sportspeed"] = 5.0; // INSTANT
+  }
 }
 
 void AutoMakeAi(const RValue &game_active)
@@ -444,6 +464,8 @@ void AiTab(bool *open)
     AutoMakeAi(game_active);
   if (!game_active.ToBoolean())
       Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", RValue());
+  if (instant_ai_play)
+    InstantAiCheck(game_active);
   if (!ImGui::Begin("AI Info", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
     ImGui::End();
@@ -461,6 +483,8 @@ void AiTab(bool *open)
   }
   ImGui::SameLine();
   ImGui::Checkbox("Auto Create AI", &auto_create_ai);
+  ImGui::SameLine();
+  ImGui::Checkbox("Instant AI Turns", &do_instant_ai_play);
   DrawPreferTarget(game_active);
   CreateAiTree(game_active);
   DrawAiTree(game_active);
@@ -474,6 +498,7 @@ void Store()
   Storage::Store("draw_all", &draw_all);
   Storage::Store("draw_intermediary", &draw_intermediary);
   Storage::Store("draw_notpossible", &draw_notpossible);
+  Storage::Store("do_instant_ai_play", &do_instant_ai_play);
 }
 
 }

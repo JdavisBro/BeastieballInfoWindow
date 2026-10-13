@@ -26,7 +26,7 @@ bool is_beastieball = false;
 
 void BeastieballCheck()
 {
-	is_beastieball = Utils::GlobalExists("sprite_beastie_ball_impact");
+	is_beastieball = yytk->CallBuiltin("asset_get_index", {"beastie_ball_impact_pos_setup"}).ToBoolean();
 	if (is_beastieball)
 	{
 		DbgPrint("Beastieball!");
@@ -134,7 +134,8 @@ std::filesystem::path save_dir = "mod_data/";
 void CodeCallback(FWCodeEvent &Event)
 {
 	auto [Self, Other, Code, ArgCount, Arg] = Event.Arguments();
-	Event.Call(Self, Other, Code, ArgCount, Arg);
+	if (!Event.CalledOriginal())
+		Event.Call(Self, Other, Code, ArgCount, Arg);
 
 	std::string name = Code->GetName();
 

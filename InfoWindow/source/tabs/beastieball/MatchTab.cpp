@@ -79,10 +79,12 @@ GameplayState SaveState(RValue &game)
   return state;
 }
 
-bool auto_create_ai_after_load = true;
-
 void LoadState(RValue &game, GameplayState &state)
 {
+  if (Utils::InstanceGet(game, "game_music_ended").ToBoolean()) {
+    yytk->CallGameScript("gml_Script_sport_play_music", {});
+  }
+
   AiTab::Undo(game, AiTab::FindAi(game, true));
   for (auto data : state.normal_values)
   {
@@ -95,8 +97,34 @@ void LoadState(RValue &game, GameplayState &state)
   }
   Utils::InstanceSet(game, "ai_choicegraph", RValue());
   Utils::InstanceSet(game, "ai_selecting", -1);
-  // if (auto_create_ai_after_load)
-  //   AiTab::MakeAi(game); // from AiTab
+
+  if (yytk->CallGameScript("gml_Script_SCENE_QUEUED", {}).ToBoolean()) {
+    yytk->CallGameScript("gml_Script_SceneClear", {});
+    RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
+    Utils::InstanceSet(scene_manager, "dialog_scribble", -1);
+    Utils::InstanceSet(game, "gameplay_camera", true);
+    RValue objChar = yytk->CallBuiltin("asset_get_index", {"objChar"});
+    int objChar_count = yytk->CallBuiltin("instance_number", {objChar}).ToInt32();
+    for (int i=0; i < objChar_count; i++) {
+      RValue obj = yytk->CallBuiltin("instance_find", {objChar, i});
+      Utils::InstanceSet(obj, "ai_freeze", false);
+      Utils::InstanceSet(obj, "status_freeze", -1);
+      Utils::InstanceSet(obj, "hp_freeze", false);
+      Utils::InstanceSet(obj, "move_freeze", false);
+    }
+    RValue ball_data = Utils::InstanceGet(game, "ball_data");
+    RValue ball = Utils::GetObjectInstance("objBall");
+    Utils::InstanceSet(ball, "grid_x", ball_data["x"]);
+    Utils::InstanceSet(ball, "grid_y", ball_data["y"]);
+    Utils::InstanceSet(ball, "beastie", RValue());
+    Utils::InstanceSet(ball, "flying", 0.0);
+    Utils::InstanceSet(ball, "winner", false);
+    Utils::InstanceSet(ball, "move_freeze", false);
+  }
+  if (Utils::GlobalGet("menu_open").ToBoolean() &&
+    Utils::GlobalGet("menu_tab_open").m_Object == Utils::InstanceGet(Utils::GetObjectInstance("objGame"), "mn_results").m_Object) {
+    yytk->CallGameScript("gml_Script_menu_level_out", {});
+  }
 }
 
 int selected = 0;
@@ -105,8 +133,6 @@ bool auto_save_enabled = true;
 void OtherSettings()
 {
   ImGui::Checkbox("Auto Save on New Rounds", &auto_save_enabled);
-  ImGui::SameLine();
-  ImGui::Checkbox("Create AI after load", &auto_create_ai_after_load);
 }
 
 void DoGame(RValue &game, bool can_save)
@@ -147,10 +173,10 @@ bool DoAutoSave(RValue &game)
   if (!game.ToBoolean())
     return false;
   int round = Utils::InstanceGet(game, "round_count").ToInt32();
-  bool scene_playing = Utils::GlobalGet("SCENE_PLAYING").ToBoolean();
+  bool scene_queued = yytk->CallGameScript("gml_Script_SCENE_QUEUED", {}).ToBoolean();
   int menu_input_freeze = Utils::InstanceGet(game, "menu_input_freeze").ToInt32();
   int selection_mode = Utils::InstanceGet(game, "selection_mode").ToInt32();
-  bool can_save = !scene_playing && menu_input_freeze == 0 && selection_mode == 0;
+  bool can_save = !scene_queued && menu_input_freeze == 0 && selection_mode == 0;
   if (can_save && auto_save_enabled && !states.contains(round))
     states[round] = SaveState(game);
   return can_save;
@@ -159,6 +185,8 @@ bool DoAutoSave(RValue &game)
 void MatchTab(bool *open)
 {
   RValue game = Utils::GlobalGet("GAME_ACTIVE");
+  if (!game.ToBoolean())
+    states.clear();
   bool can_save = DoAutoSave(game);
   if (!ImGui::Begin("Match", open, ImGuiWindowFlags_NoFocusOnAppearing))
   {
@@ -169,7 +197,6 @@ void MatchTab(bool *open)
   {
     ImGui::Text("No Active Match");
     OtherSettings();
-    states.clear();
   }
   else
     DoGame(game, can_save);
@@ -180,7 +207,6 @@ void MatchTab(bool *open)
 void Store()
 {
   Storage::Store("auto_save_enabled", &auto_save_enabled);
-  Storage::Store("auto_create_ai_after_load", &auto_create_ai_after_load);
 }
 
 }

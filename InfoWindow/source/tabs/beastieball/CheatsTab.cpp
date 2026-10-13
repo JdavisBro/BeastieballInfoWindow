@@ -230,12 +230,44 @@ RValue &ButtonlistPressed(CInstance *Self, CInstance *Other, RValue &ReturnValue
   return ReturnValue;
 }
 
+PFUNC_YYGMLScript item_count = nullptr;
+RValue &ItemCount(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  // Fix debug balance tab crash
+  if (!yytk->CallGameScript("gml_Script_item_data", {*Args[0]}).ToBoolean()) {
+    ReturnValue = 0.0;
+    return ReturnValue;
+  }
+  item_count(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+
+double GetAxisAngle(bool get_y);
+
+PFUNC_YYGMLScript input_axis_x = nullptr;
+RValue &InputAxisX(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  ReturnValue = GetAxisAngle(false);
+  // input_axis_x(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+PFUNC_YYGMLScript input_axis_y = nullptr;
+RValue &InputAxisY(CInstance *Self, CInstance *Other, RValue &ReturnValue, int numArgs, RValue **Args)
+{
+  ReturnValue = GetAxisAngle(true);
+  // input_axis_y(Self, Other, ReturnValue, numArgs, Args);
+  return ReturnValue;
+}
+
 void CheatsHooks()
 {
   RequestHook("gml_Script_triangulate@", "class_shape", "IW shapeTriangulate", ShapeTriangulate, reinterpret_cast<PVOID *>(&shapeTriangulateOriginal));
   RequestHook("gml_Script_build_baked_models@", "class_level", "IW build_baked_models", BuildBakedModels, reinterpret_cast<PVOID *>(&buildBakedModelsOriginal));
   RequestHook("gml_Script_AddTo@", "DotobjClassGroup", "IW groupaddto", GroupAddTo, reinterpret_cast<PVOID *>(&groupAddToOriginal));
   RequestHook(NULL, "gml_Script_buttonlist_pressed", "IW buttonlistpressed", ButtonlistPressed, reinterpret_cast<PVOID *>(&buttonlistPressedOriginal));
+  RequestHook(NULL, "gml_Script_item_count", "IW icount", ItemCount, reinterpret_cast<PVOID *>(&item_count));
+  RequestHook(NULL, "gml_Script_input_axis_x", "IW inaxx", InputAxisX, reinterpret_cast<PVOID *>(&input_axis_x));
+  RequestHook(NULL, "gml_Script_input_axis_y", "IW inaxy", InputAxisY, reinterpret_cast<PVOID *>(&input_axis_y));
 }
 
 const char *player_vars[] = {
@@ -280,6 +312,21 @@ void DoDebugChildren(RValue &thing)
     // is button
     bool pressed = false;
     std::vector<RValue> keys = thing["keys"].ToVector();
+    size_t key_count = keys.size();
+    if (key_count > 0 && key_count < 3) {
+      bool has_ctrl = false;
+      bool has_shift = false;
+      bool use_alt = false;
+      for (RValue &key : keys) {
+        int key_i = key.ToInt32();
+        if (key_i == 17) has_ctrl = true;
+        if (key_i == 16) has_shift = true;
+        if (key_i == 77) use_alt = true; // ctrl + shift + m is already used
+      }
+      if (!has_shift) yytk->CallBuiltin("array_insert", {thing["keys"], has_ctrl ? 1 : 0, use_alt ? 18 : 16});
+      if (!has_ctrl) yytk->CallBuiltin("array_insert", {thing["keys"], 0, 17});
+      keys = thing["keys"].ToVector();
+    }
     for (RValue &key : keys)
     {
       if (yytk->CallBuiltin("keyboard_check_pressed", {key}).ToBoolean())
@@ -385,8 +432,11 @@ void SavedataLoad()
 bool auto_load = false;
 bool was_init = true;
 
+void DoFirstPerson();
+
 void CheatsTab(bool *open)
 {
+  DoFirstPerson();
   if (was_init && !Utils::ObjectInstanceExists("objInit")) {
     was_init = false;
     if (auto_load)
@@ -503,6 +553,66 @@ void Store()
   Storage::Store("view_collision", &view_collision);
   if (old_view_collision != view_collision) {
     ToggleCollision(Utils::GetObjectInstance("objGame"));
+  }
+}
+
+const double SENSITIVITY = 1000.0;
+const double TWOPI = std::numbers::pi * 2.0;
+const double X_MIN_ANGLE = std::numbers::pi * 1 / 180;
+const double X_MAX_ANGLE = std::numbers::pi * 179 / 180;
+const double PLAYER_EYE_HEIGHT = 200.0 * 0.85;
+
+double x_angle = X_MIN_ANGLE;
+double z_angle = 0.0;
+
+double GetAxisAngle(bool get_y) {
+  bool fp_enabled = yytk->CallBuiltin("window_mouse_get_locked", {}).ToBoolean();
+  double used_angle = fp_enabled ? TWOPI - z_angle : 0;
+  double right = yytk->CallGameScript("gml_Script_buttonlist_check", {Utils::GlobalGet("right_buttons")}).ToDouble() + yytk->CallGameScript("gml_Script_controller_get_right", {}).ToDouble();
+  double left = yytk->CallGameScript("gml_Script_buttonlist_check", {Utils::GlobalGet("left_buttons")}).ToDouble() + yytk->CallGameScript("gml_Script_controller_get_left", {}).ToDouble();
+  double x = right - left;
+  double down = yytk->CallGameScript("gml_Script_buttonlist_check", {Utils::GlobalGet("down_buttons")}).ToDouble() + yytk->CallGameScript("gml_Script_controller_get_down", {}).ToDouble();
+  double up = yytk->CallGameScript("gml_Script_buttonlist_check", {Utils::GlobalGet("up_buttons")}).ToDouble() + yytk->CallGameScript("gml_Script_controller_get_up", {}).ToDouble();
+  double y = down - up;
+  return get_y ? x * sin(used_angle) + y * cos(used_angle) : x * cos(used_angle) - y * sin(used_angle);
+}
+
+void DoFirstPerson() {
+  return;
+  bool fp_enabled = yytk->CallBuiltin("window_mouse_get_locked", {}).ToBoolean();
+  if (yytk->CallBuiltin("keyboard_check_pressed", {18.0}).ToBoolean()) {// alt
+    fp_enabled = !fp_enabled;
+    yytk->CallBuiltin("window_mouse_set_locked", {fp_enabled});
+  }
+  
+  if (fp_enabled) {
+    double moved_x = yytk->CallBuiltin("window_mouse_get_delta_x", {}).ToDouble();
+    z_angle -= moved_x / SENSITIVITY * TWOPI;
+    while (z_angle < 0) z_angle += TWOPI;
+    while (z_angle >= TWOPI) z_angle -= TWOPI;
+
+    double moved_y = yytk->CallBuiltin("window_mouse_get_delta_y", {}).ToDouble();
+    x_angle -= moved_y / SENSITIVITY * TWOPI;
+    while (x_angle < X_MIN_ANGLE) x_angle = X_MIN_ANGLE;
+    while (x_angle > X_MAX_ANGLE) x_angle = X_MAX_ANGLE;
+  
+    RValue scene_manager = Utils::GetObjectInstance("objSceneManager");
+    RValue shot_overworld = Utils::InstanceGet(scene_manager, "shot_overworld");
+    RValue player = Utils::GetObjectInstance("objPlayer");
+    if (shot_overworld.ToBoolean() && player.ToBoolean()) {
+      Utils::InstanceSet(player, "visible", false);
+      shot_overworld["dist"] = -0.1;
+      shot_overworld["look_x"] = Utils::InstanceGet(player, "x").ToDouble();
+      shot_overworld["look_y"] = Utils::InstanceGet(player, "y").ToDouble();
+      shot_overworld["look_z"] = Utils::InstanceGet(player, "z").ToDouble() + Utils::InstanceGet(player, "body_yscale").ToDouble() * PLAYER_EYE_HEIGHT;
+      Utils::InstanceSet(scene_manager, "camera_z", shot_overworld["look_z"]);
+      shot_overworld["pan_angle"] = z_angle / std::numbers::pi * 180.0;
+      shot_overworld["height_angle"] = x_angle / std::numbers::pi * 180.0;
+      Utils::InstanceSet(scene_manager, "camera_clip_distance", 0.0);
+      Utils::InstanceSet(scene_manager, "camera_clip_start", 0.0);
+      Utils::InstanceSet(scene_manager, "camera_fov", 90.0);
+      Utils::CallStructMethod(shot_overworld, "apply", {});
+    }
   }
 }
 
