@@ -24,7 +24,7 @@ jobs:
 
     strategy:
       matrix:
-        branch: [main, gacha]
+        branch: [main, gacha, yytk_v4]
 
     steps:
       - name: Checkout Repo
