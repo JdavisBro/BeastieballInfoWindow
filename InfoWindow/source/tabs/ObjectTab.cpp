@@ -466,10 +466,10 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   else
     NewValue(type, object);
   ImGui::BeginChild("vars");
-  std::vector<RValue *> names_vec = names.ToRefVector();
+  std::vector<RValue> names_vec = names.ToVector();
   for (int i = start_index; i < count; i++)
   {
-    RValue key = use_names ? *names_vec[i] : RValue(std::to_string(i));
+    RValue key = use_names ? names_vec[i] : RValue(std::to_string(i));
     std::string name = use_names ? key.ToString() : name_func ? name_func(i, object)
       : std::to_string(i);
     if (!pane.search.empty() && name.find(pane.search) == -1)
