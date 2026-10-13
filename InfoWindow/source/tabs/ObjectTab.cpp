@@ -180,12 +180,10 @@ const char * RVALUE_TYPE_NAMES[] = {
   "Ref", // VALUE_REF
 };
 
-RValue *setter_value = (RValue *)malloc(sizeof(RValue));
-std::string setter_ref_string = "";
-
 double RValueToDoubleSafe(const RValue &value)
 {
-  if (value.m_Kind == VALUE_STRING) {
+  switch (value.m_Kind) {
+  case VALUE_STRING: {
     const char *str = value.ToCString();
     bool decimal = false;
     bool anydigit = false;
@@ -200,51 +198,61 @@ double RValueToDoubleSafe(const RValue &value)
       else return 0.0;
     }
     if (!anydigit) return 0.0;
+    break;
+  }
+  case VALUE_UNDEFINED:
+    return 0.0;
   }
   return value.ToDouble();
 }
 
-RValue ValueSetter(RValue &name, RValue &value, bool just_changed)
+struct ValueSetterTemps {
+  RValue *value = (RValue*)malloc(sizeof(RValue));
+  std::string str;
+};
+
+bool ValueSetter(RValue &name, RValue &value, bool just_changed, ValueSetterTemps &temps, bool is_create_value = false)
 {
   if (just_changed)
-    *setter_value = value;
+    *temps.value = value;
   ImGui::Text(std::format("{} = {}", name.ToString(), RValueToString(value)).c_str());
-  if (ImGui::BeginCombo("Type", RVALUE_TYPE_NAMES[setter_value->m_Kind <= VALUE_REF ? setter_value->m_Kind : VALUE_UNDEFINED])) {
-    if (ImGui::Selectable("Boolean")) *setter_value = RValue(setter_value->ToBoolean());
-    if (ImGui::Selectable("Number")) *setter_value = RValue(RValueToDoubleSafe(*setter_value));
-    if (ImGui::Selectable("String")) *setter_value = RValue(setter_value->ToString());
-    if (ImGui::Selectable("Ref")) *setter_value = yytk->CallBuiltin("asset_get_index", {yytk->CallBuiltin("sprite_get_name", {0.0})});
+  if (ImGui::BeginCombo("Type", RVALUE_TYPE_NAMES[temps.value->m_Kind <= VALUE_REF ? temps.value->m_Kind : VALUE_UNDEFINED])) {
+    if (ImGui::Selectable("Undefined")) *temps.value = RValue();
+    if (ImGui::Selectable("Boolean")) *temps.value = RValue(temps.value->ToBoolean());
+    if (ImGui::Selectable("Number")) *temps.value = RValue(RValueToDoubleSafe(*temps.value));
+    if (ImGui::Selectable("String")) *temps.value = RValue(temps.value->ToString());
+    if (ImGui::Selectable("Ref")) *temps.value = yytk->CallBuiltin("asset_get_index", {yytk->CallBuiltin("sprite_get_name", {0.0})});
     ImGui::EndCombo();
   }
-  switch (setter_value->m_Kind)
+  switch (temps.value->m_Kind)
   {
   case VALUE_BOOL: {
-    bool setter_bool = setter_value->ToBoolean();
-    if (ImGui::Checkbox("Value", &setter_bool)) *setter_value = setter_bool;
+    bool setter_bool = temps.value->ToBoolean();
+    if (ImGui::Checkbox("Value", &setter_bool)) *temps.value = setter_bool;
     break;
   }
   case VALUE_INT32:
   case VALUE_INT64:
   case VALUE_REAL: {
-    double setter_double = setter_value->ToDouble();
-    if (ImGui::InputDouble("##DoubleInput", &setter_double, 0.0, 0.0, "%f")) *setter_value = setter_double;
+    double setter_double = temps.value->ToDouble();
+    if (ImGui::InputDouble("##DoubleInput", &setter_double, 0.0, 0.0, "%f")) *temps.value = setter_double;
     break;
   }
   case VALUE_STRING: {
-    std::string setter_string = setter_value->ToString();
-    if (ImGui::InputTextMultiline("##TextInput", &setter_string)) *setter_value = RValue(setter_string);
+    std::string setter_string = temps.value->ToString();
+    if (ImGui::InputTextMultiline("##TextInput", &setter_string)) *temps.value = RValue(setter_string);
     break;
   }
   case VALUE_REF: {
-    ImGui::InputText("##RefInput", &setter_ref_string);
-    RValue asset = yytk->CallBuiltin("asset_get_index", {RValue(setter_ref_string)});
-    if (asset.ToBoolean()) *setter_value = asset;
-    ImGui::Text(setter_value->ToString().c_str());
+    ImGui::InputText("##RefInput", &temps.str);
+    RValue asset = yytk->CallBuiltin("asset_get_index", {RValue(temps.str)});
+    if (asset.ToBoolean()) *temps.value = asset;
+    ImGui::Text(temps.value->ToString().c_str());
     break;
   }
   }
   ImGui::SameLine();
-  return ImGui::Button("Set") ? *setter_value : RValue();
+  return ImGui::Button(is_create_value ? "Create" : "Set");
 }
 
 const int NONE_SELECTED = -2;
@@ -298,45 +306,48 @@ void EndEndPane()
     ImGui::SetScrollHereX(1.0);
 }
 
-std::string new_obj_name = "";
-double new_obj_x = 0;
-double new_obj_y = 0;
-double new_obj_z = 0;
-bool new_obj_set_z = false;
-double new_obj_depth = 0;
+struct NewObjTemps {
+  std::string name = "";
+  double x = 0;
+  double y = 0;
+  double z = 0;
+  bool set_z = false;
+  double depth = 0;
+};
+NewObjTemps new_obj;
 
 void CreateObject() {
   if (ImGui::Button("Create"))
     ImGui::OpenPopup("createobj");
   if (ImGui::BeginPopup("createobj")) {
-    ImGui::InputText("Object Name", &new_obj_name);
-    ImGui::InputDouble("X", &new_obj_x);
+    ImGui::InputText("Object Name", &new_obj.name);
+    ImGui::InputDouble("X", &new_obj.x);
     ImGui::SameLine();
-    ImGui::InputDouble("Y", &new_obj_y);
+    ImGui::InputDouble("Y", &new_obj.y);
     ImGui::SameLine();
-    ImGui::InputDouble("Z", &new_obj_z);
+    ImGui::InputDouble("Z", &new_obj.z);
     ImGui::SameLine();
-    ImGui::Checkbox("Set Z", &new_obj_set_z);
+    ImGui::Checkbox("Set Z", &new_obj.set_z);
     if (ImGui::Button("Copy Position from 1st Selected Instance")) {
       int selection = panes[0].selection;
       if (selection >= 0) {
         RValue old_inst = yytk->CallBuiltin("instance_find", {-3, selection});
         if (old_inst.ToBoolean()) {
-          new_obj_x = Utils::InstanceGet(old_inst, "x").ToDouble();
-          new_obj_y = Utils::InstanceGet(old_inst, "y").ToDouble();
-          new_obj_set_z = Utils::InstanceExists(old_inst, "z");
-          if (new_obj_set_z)
-            new_obj_z = Utils::InstanceGet(old_inst, "z").ToDouble();
+          new_obj.x = Utils::InstanceGet(old_inst, "x").ToDouble();
+          new_obj.y = Utils::InstanceGet(old_inst, "y").ToDouble();
+          new_obj.set_z = Utils::InstanceExists(old_inst, "z");
+          if (new_obj.set_z)
+            new_obj.z = Utils::InstanceGet(old_inst, "z").ToDouble();
         }
       }
     }
-    ImGui::InputDouble("Depth", &new_obj_depth);
+    ImGui::InputDouble("Depth", &new_obj.depth);
     if (ImGui::Button("Create")) {
-      RValue obj = yytk->CallBuiltin("asset_get_index", {RValue(new_obj_name)});
+      RValue obj = yytk->CallBuiltin("asset_get_index", {RValue(new_obj.name)});
       if (obj.ToBoolean() && yytk->CallBuiltin("object_exists", {obj}).ToBoolean()) {
-        RValue inst = yytk->CallBuiltin("instance_create_depth", {new_obj_x, new_obj_y, new_obj_depth, obj});
-        if (new_obj_set_z)
-          Utils::InstanceSet(inst, "z", new_obj_z);
+        RValue inst = yytk->CallBuiltin("instance_create_depth", {new_obj.x, new_obj.y, new_obj.depth, obj});
+        if (new_obj.set_z)
+          Utils::InstanceSet(inst, "z", new_obj.z);
       }
     }
     ImGui::EndPopup();
@@ -370,11 +381,15 @@ void SetValue(StorageType type, const RValue &object, const RValue &key, int ind
 }
 
 std::string new_var_name = "";
+ValueSetterTemps new_value_setter_temps;
 
 void NewValue(StorageType type, RValue &object)
 {
-  if (ImGui::Button("New"))
+  bool just_clicked = false;
+  if (ImGui::Button("New")) {
     ImGui::OpenPopup("newvar");
+    just_clicked = true;
+  }
   if (ImGui::BeginPopup("newvar")) {
     bool name_check = false;
     switch (type) {
@@ -384,15 +399,12 @@ void NewValue(StorageType type, RValue &object)
       ImGui::InputText("Name", &new_var_name);
       name_check = true;
     }
-    if (!name_check || (!new_var_name.empty() && !new_var_name.starts_with("@@"))) {
-      if (ImGui::Button("Create Bool"))
-        SetValue(type, object, RValue(new_var_name), -1, false);
-      ImGui::SameLine();
-      if (ImGui::Button("Create Number"))
-        SetValue(type, object, RValue(new_var_name), -1, 0.0);
-      ImGui::SameLine();
-      if (ImGui::Button("Create String"))
-        SetValue(type, object, RValue(new_var_name), -1, "");
+    bool valid_name = !name_check || (!new_var_name.empty() && !new_var_name.starts_with("@@"));
+    RValue new_name = valid_name ? RValue(new_var_name) : RValue("");
+    RValue new_value;
+    if (ValueSetter(new_name, new_value, just_clicked, new_value_setter_temps, true) && valid_name) {
+      SetValue(type, object, new_name, -1, *new_value_setter_temps.value);
+      ImGui::CloseCurrentPopup();
     }
     ImGui::EndPopup();
   }
@@ -405,6 +417,8 @@ const char *storage_type_size_functions[] = {
     "ds_map_size",                   // STORAGE_DS_MAP
     "ds_list_size",                  // STORAGE_DS_LIST
 };
+
+ValueSetterTemps end_pane_setter_temps;
 
 void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue &)> name_func, int count, int start_index, StorageType type, RValue &builtins_array)
 {
@@ -502,9 +516,8 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     else
     {
       BeginEndPane();
-      RValue new_value = ValueSetter(selected_key, selected_value, just_changed);
-      if (!new_value.IsUndefined())
-        SetValue(type, object, selected_key, pane.selection, new_value);
+      if (ValueSetter(selected_key, selected_value, just_changed, end_pane_setter_temps))
+        SetValue(type, object, selected_key, pane.selection, *end_pane_setter_temps.value);
       EndEndPane();
     }
   }
