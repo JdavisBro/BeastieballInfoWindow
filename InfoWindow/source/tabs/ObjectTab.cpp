@@ -216,18 +216,13 @@ bool ValueSetter(RValue &name, RValue &value, bool just_changed, ValueSetterTemp
   if (just_changed)
     *temps.value = value;
   ImGui::Text(std::format("{} = {}", name.ToString(), RValueToString(value)).c_str());
-  RValue return_value;
-  if (ImGui::Button("To Bool"))
-    return_value = RValue(value.ToBoolean());
-  ImGui::SameLine();
-  if (ImGui::Button("To Number"))
-    return_value = RValue(value.ToDouble());
-  ImGui::SameLine();
-  if (ImGui::Button("To String"))
-    return_value = RValue(value.ToString());
-  if (!return_value.IsUndefined()) {
-    just_changed = true;
-    value = return_value;
+  if (ImGui::BeginCombo("Type", RVALUE_TYPE_NAMES[temps.value->m_Kind <= VALUE_REF ? temps.value->m_Kind : VALUE_UNDEFINED])) {
+    if (ImGui::Selectable("Undefined")) *temps.value = RValue();
+    if (ImGui::Selectable("Boolean")) *temps.value = RValue(temps.value->ToBoolean());
+    if (ImGui::Selectable("Number")) *temps.value = RValue(RValueToDoubleSafe(*temps.value));
+    if (ImGui::Selectable("String")) *temps.value = RValue(temps.value->ToString());
+    if (ImGui::Selectable("Ref")) *temps.value = yytk->CallBuiltin("asset_get_index", {yytk->CallBuiltin("sprite_get_name", {0.0})});
+    ImGui::EndCombo();
   }
   switch (temps.value->m_Kind)
   {
@@ -466,7 +461,7 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
   RValue selected_value;
   ImGui::InputText("Search", &pane.search);
   ImGui::SameLine();
-  if (object.IsUndefined())
+  if (type == STORAGE_OBJECT_LIST)
     CreateObject();
   else
     NewValue(type, object);
@@ -521,9 +516,8 @@ void MakePane(int pane_id, RValue &object, std::function<std::string(int, RValue
     else
     {
       BeginEndPane();
-      RValue new_value = ValueSetter(selected_key, selected_value, just_changed);
-      if (!new_value.IsUndefined())
-        SetValue(type, object, selected_key, pane.selection, new_value);
+      if (ValueSetter(selected_key, selected_value, just_changed, end_pane_setter_temps))
+        SetValue(type, object, selected_key, pane.selection, *end_pane_setter_temps.value);
       EndEndPane();
     }
   }
