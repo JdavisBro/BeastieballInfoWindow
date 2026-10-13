@@ -208,7 +208,7 @@ double RValueToDoubleSafe(const RValue &value)
 
 struct ValueSetterTemps {
   RValue *value = (RValue*)malloc(sizeof(RValue));
-  std::string str;
+  std::string asset_str;
 };
 
 bool ValueSetter(RValue &name, RValue &value, bool just_changed, ValueSetterTemps &temps, bool is_create_value = false)
@@ -244,8 +244,8 @@ bool ValueSetter(RValue &name, RValue &value, bool just_changed, ValueSetterTemp
     break;
   }
   case VALUE_REF: {
-    ImGui::InputText("##RefInput", &temps.str);
-    RValue asset = yytk->CallBuiltin("asset_get_index", {RValue(temps.str)});
+    ImGui::InputText("##RefInput", &temps.asset_str);
+    RValue asset = yytk->CallBuiltin("asset_get_index", {RValue(temps.asset_str)});
     if (asset.ToBoolean()) *temps.value = asset;
     ImGui::Text(temps.value->ToString().c_str());
     break;
