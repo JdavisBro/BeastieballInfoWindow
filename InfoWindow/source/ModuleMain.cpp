@@ -72,8 +72,8 @@ TabInfo tabs[] = {
 	{"ImGui Demo", false, false, DemoWindow},
 	{"Object Tab", true, false, ObjectTab::ObjectTab, "ObjectTab", ObjectTab::Store},
 	{"Console Tab", true, false, ConsoleTab::ConsoleTab, "ConsoleTab", ConsoleTab::Store},
-	{"AI Tab", true, true, AiTab::AiTab, "AiTab", AiTab::Store},
 	{"Match Tab", true, true, MatchTab::MatchTab, "MatchTab", MatchTab::Store},
+	{"AI Tab", true, true, AiTab::AiTab, "AiTab", AiTab::Store},
 	{"Party Tab", true, true, PartyTab::PartyTab, "PartyTab", PartyTab::Store},
 	{"Cheats Tab", true, true, CheatsTab::CheatsTab, "CheatsTab", CheatsTab::Store},
 };
