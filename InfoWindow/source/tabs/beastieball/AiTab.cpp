@@ -15,7 +15,7 @@ namespace AiTab {
 
 int done_round = -1;
 
-void Undo(const RValue &game_active, int found_ai)
+void Undo(const RValue &game_active, int found_ai, bool reset_round)
 {
   RValue stack = Utils::InstanceGet(game_active, "board_snapshots");
   while (!yytk->CallBuiltin("ds_stack_empty", {stack}))
@@ -29,7 +29,8 @@ void Undo(const RValue &game_active, int found_ai)
     yytk->CallGameScript("gml_Script_board_snapshot_load", {last_ai_snapshot});
     Utils::GlobalSet("INFOWINDOW_last_ai_snapshot", RValue());
   }
-  done_round = -1;
+  if (reset_round)
+    done_round = -1;
 }
 
 int FindAi(const RValue &game_active, bool always_return_ai)

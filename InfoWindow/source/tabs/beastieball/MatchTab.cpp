@@ -47,7 +47,7 @@ bool IsExcludedName(std::string &name)
 
 GameplayState SaveState(RValue &game)
 {
-  AiTab::Undo(game, AiTab::FindAi(game, true));
+  AiTab::Undo(game, AiTab::FindAi(game, true), false);
   GameplayState state;
   state.name = std::format("Turn {:03d}", Utils::InstanceGet(game, "round_count").ToInt32());
   std::vector<RValue> names = yytk->CallBuiltin("variable_instance_get_names", {game}).ToVector();
