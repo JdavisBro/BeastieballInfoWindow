@@ -423,6 +423,8 @@ void SelectedBeastie(RValue beastie)
 std::string new_beastie_species = "shroom1";
 double level = 5;
 bool learn_all_plays = false;
+bool use_set_seed = false;
+double seed = 0.0;
 
 std::string BeastieSpeciesToString(const RValue &species)
 {
@@ -453,9 +455,13 @@ void NewBeastie(RValue &party)
   }
   ImGui::InputDouble("Level", &level, 1., 10., "%.0f");
   ImGui::Checkbox("Learn All Plays", &learn_all_plays);
+  ImGui::Checkbox("Set Seed", &use_set_seed);
+  ImGui::SameLine();
+  ImGui::InputDouble("seed", &seed, 1., 10., "%.f", use_set_seed ? ImGuiInputTextFlags_None : ImGuiInputTextFlags_ReadOnly);
   if (ImGui::Button("Create"))
   {
     DbgPrint(beastie_template["generate"].ToCString());
+    if (use_set_seed) yytk->CallGameScript("gml_Script_Random_set_seed", {seed});
     RValue beastie = Utils::CallStructMethod(beastie_template, "generate", {level, 0});
     if (learn_all_plays)
     {
@@ -527,6 +533,8 @@ void Store()
   Storage::Store("new_beastie_species", &new_beastie_species);
   Storage::Store("level", &level);
   Storage::Store("learn_all_plays", &learn_all_plays);
+  Storage::Store("use_set_seed", &use_set_seed);
+  Storage::Store("seed", &seed);
 }
 
 }
