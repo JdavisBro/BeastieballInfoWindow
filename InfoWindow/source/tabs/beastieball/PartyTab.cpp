@@ -428,7 +428,7 @@ double seed = 0.0;
 
 std::string BeastieSpeciesToString(const RValue &species)
 {
-  return std::format("{} - {}", species["number"].ToString(), species["name"].ToString());
+  return species.ToBoolean() ? std::format("{} - {}", species["number"].ToString(), species["name"].ToString()) : "Unknown Beastie";
 }
 
 void NewBeastie(RValue &party)
@@ -458,7 +458,7 @@ void NewBeastie(RValue &party)
   ImGui::Checkbox("Set Seed", &use_set_seed);
   ImGui::SameLine();
   ImGui::InputDouble("seed", &seed, 1., 10., "%.f", use_set_seed ? ImGuiInputTextFlags_None : ImGuiInputTextFlags_ReadOnly);
-  if (ImGui::Button("Create"))
+  if (ImGui::Button("Create") && beastie_template.ToBoolean())
   {
     DbgPrint(beastie_template["generate"].ToCString());
     if (use_set_seed) yytk->CallGameScript("gml_Script_Random_set_seed", {seed});
